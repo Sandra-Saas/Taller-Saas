@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
-import Link from 'next/link'
+import { getSafeRedirectPath } from '@/lib/auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -14,7 +15,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const { signIn } = useAuth()
+  const searchParams = useSearchParams()
+  const { signIn, user, loading: authLoading } = useAuth()
+  const nextPath = getSafeRedirectPath(searchParams.get('next'))
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(nextPath)
+    }
+  }, [authLoading, nextPath, router, user])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -24,7 +33,7 @@ export default function LoginPage() {
     try {
       const { error } = await signIn(email, password)
       if (error) throw error
-      router.push('/dashboard')
+      router.push(nextPath)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -33,16 +42,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-lg bg-primary-600 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-lg bg-blue-600 flex items-center justify-center">
               <span className="text-white font-bold text-xl">T</span>
             </div>
           </div>
-          <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-          <CardDescription>Ingresa a tu cuenta de Taller SaaS</CardDescription>
+          <CardTitle className="text-2xl">Iniciar Sesion</CardTitle>
+          <CardDescription>Accede con tu email y tu contraseña</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -51,7 +60,7 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
               <Input
@@ -75,7 +84,7 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Cargando...' : 'Iniciar Sesión'}
+              {loading ? 'Ingresando...' : 'Ingresar'}
             </Button>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">

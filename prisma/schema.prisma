@@ -25,7 +25,7 @@ model Tenant {
   logo                  String?
   status                String    @default("active") // active, suspended, cancelled
   planId                String
-  subscriptionId        String?
+  subscriptionId        String?   @unique
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
   createdAt             DateTime  @default(now())
@@ -34,7 +34,7 @@ model Tenant {
 
   // Relations
   plan              Plan              @relation(fields: [planId], references: [id])
-  subscription      Subscription?     @relation(fields: [subscriptionId], references: [id])
+  subscription      Subscription?     @relation("TenantSubscription")
   users             User[]
   roles             Role[]
   permissions       Permission[]
@@ -140,7 +140,7 @@ model Subscription {
   updatedAt      DateTime @updatedAt
 
   // Relations
-  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  tenant         Tenant   @relation("TenantSubscription", fields: [tenantId], references: [id])
   plan           Plan     @relation(fields: [planId], references: [id])
   history        SubscriptionHistory[]
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -14,13 +14,21 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const router = useRouter()
-  const { signUp } = useAuth()
+  const { signUp, user, loading: authLoading } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/dashboard')
+    }
+  }, [authLoading, router, user])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setMessage('')
 
     if (password !== confirmPassword) {
       setError('Las contraseñas no coinciden')
@@ -29,9 +37,15 @@ export default function RegisterPage() {
     }
 
     try {
-      const { error } = await signUp(email, password)
+      const { data, error } = await signUp(email, password)
       if (error) throw error
-      router.push('/dashboard')
+
+      if (data?.session) {
+        router.push('/dashboard')
+        return
+      }
+
+      setMessage('Cuenta creada correctamente. Ya puedes iniciar sesion con tu email y contraseña.')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -56,6 +70,12 @@ export default function RegisterPage() {
             {error && (
               <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm dark:bg-red-900/20 dark:text-red-400">
                 {error}
+              </div>
+            )}
+
+            {message && (
+              <div className="p-3 rounded-lg bg-green-50 text-green-700 text-sm dark:bg-green-900/20 dark:text-green-400">
+                {message}
               </div>
             )}
             

@@ -5,8 +5,12 @@ export const metadata = {
   title: 'Taller SaaS',
   description: 'Plataforma SaaS para talleres mecánicos',
   manifest: '/manifest.json',
+}
+
+export const viewport = {
   themeColor: '#0ea5e9',
-  viewport: 'width=device-width, initial-scale=1',
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({ children }) {

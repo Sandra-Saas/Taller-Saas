@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { clearSessionCookies, getTenantFromUser, persistSessionCookies } from '@/lib/auth'
 
 const AuthContext = createContext()
 
@@ -11,12 +12,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const applySession = (session) => {
+      const nextUser = session?.user || null
+
+      setUser(nextUser)
+      setTenant(getTenantFromUser(nextUser))
+      persistSessionCookies(session)
+    }
+
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setUser(session.user)
-        // TODO: Fetch tenant data from API based on user
-      }
+      applySession(session)
       setLoading(false)
     }
 
@@ -24,8 +30,7 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setUser(session?.user || null)
-        // TODO: Fetch tenant data when session changes
+        applySession(session)
         setLoading(false)
       }
     )
@@ -45,6 +50,7 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
     setUser(null)
     setTenant(null)
+    clearSessionCookies()
   }
 
   return (
