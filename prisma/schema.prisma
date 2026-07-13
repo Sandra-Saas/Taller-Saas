@@ -40,31 +40,99 @@ model Tenant {
   permissions       Permission[]
   auditLogs         AuditLog[]
   settings          Setting[]
-  // Business models (to be added later)
-  // clients           Client[]
-  // vehicles          Vehicle[]
-  // etc...
+  // Business models
+  clients           Client[]
+  companies         Company[]
+  contacts          Contact[]
+  phones            Phone[]
+  emails            Email[]
+  addresses         Address[]
+  tags              Tag[]
+  clientTags        ClientTag[]
+  companyTags       CompanyTag[]
+  vehicles          Vehicle[]
+  receptions        Reception[]
+  calendarEvents    CalendarEvent[]
+  vehicleStatusLogs VehicleStatusLog[]
+  quotations        Quotation[]
+  workOrders        WorkOrder[]
+  inventoryItems    InventoryItem[]
+  inventoryCategories InventoryCategory[]
+  inventoryMovements InventoryMovement[]
+  suppliers         Supplier[]
+  purchases         Purchase[]
+  invoices          Invoice[]
+  warranties        Warranty[]
+  notifications     Notification[]
+  documents         Document[]
+  posTransactions   PosTransaction[]
+  services          Service[]
+  tickets           Ticket[]
+  payments          Payment[]
+  subscriptionInvoices SubscriptionInvoice[]
+  branches          Branch[]
+  dashboardPreferences DashboardPreference[]
+  smartAlerts       SmartAlert[]
+  scheduledReports  ScheduledReport[]
+  aiSettings        AISetting[]
+  aiQueries         AIQuery[]
+  chatMessages      ChatMessage[]
+  automationRules   AutomationRule[]
+  automationLogs    AutomationLog[]
+  whatsappIntegrations WhatsAppIntegration[]
+  whatsappMessages  WhatsAppMessage[]
+  emailTemplates    EmailTemplate[]
+  apiKeys           APIKey[]
+  webhooks          Webhook[]
+  webhookLogs       WebhookLog[]
+  whiteLabelConfig  WhiteLabelConfig?
+  featureFlagValues FeatureFlagValue[]
+  sessions          Session[]
 
   @@map("tenants")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  firstName    String
-  lastName     String
-  email        String   @unique
-  password     String   // Hashed password
-  status       String   @default("active") // active, inactive
-  tenantId     String
-  roleId       String
-  lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                       String                @id @default(uuid())
+  firstName                String
+  lastName                 String
+  email                    String                @unique
+  password                 String                // Hashed password
+  status                   String                @default("active") // active, inactive
+  tenantId                 String
+  roleId                   String
+  branchId                 String?
+  lastLoginAt              DateTime?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
 
   // Relations
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role         Role     @relation(fields: [roleId], references: [id])
-  auditLogs    AuditLog[]
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role                     Role                  @relation(fields: [roleId], references: [id])
+  branch                   Branch?               @relation(fields: [branchId], references: [id])
+  auditLogs                AuditLog[]
+  receptions               Reception[]           @relation("ReceptionReceivedBy")
+  calendarEventsAsMechanic CalendarEvent[]       @relation("CalendarEventMechanic")
+  vehicleStatusLogs        VehicleStatusLog[]    @relation("VehicleStatusLogChangedBy")
+  approvedQuotations       Quotation[]           @relation("QuotationApprovedBy")
+  quotationHistory         QuotationHistory[]    @relation("QuotationHistoryChangedBy")
+  assignedWorkOrders       WorkOrder[]           @relation("WorkOrderAssignedTo")
+  workOrderTasks           WorkOrderTask[]       @relation("WorkOrderTaskAssignedTo")
+  inventoryMovements       InventoryMovement[]   @relation("InventoryMovementMovedBy")
+  receivedPurchases        Purchase[]            @relation("PurchaseReceivedBy")
+  posTransactionsAsCashier PosTransaction[]      @relation("PosTransactionCashier")
+  notifications            Notification[]        @relation("NotificationUser")
+  uploadedDocuments        Document[]            @relation("DocumentUploadedBy")
+  tickets             Ticket[]
+  dashboardPreferences DashboardPreference[]
+  scheduledReports  ScheduledReport[]
+  aiQueries         AIQuery[]
+  chatMessages      ChatMessage[]
+  automationRules   AutomationRule[]
+  apiKeys           APIKey[]
+  webhooks          Webhook[]
+  featureFlagValues FeatureFlagValue[]
+  sessions          Session[]
 
   @@map("users")
 }
@@ -119,8 +187,9 @@ model Plan {
   updatedAt        DateTime @updatedAt
 
   // Relations
-  tenants          Tenant[]
-  subscriptions    Subscription[]
+  tenants               Tenant[]
+  subscriptions         Subscription[]
+  subscriptionInvoices SubscriptionInvoice[]
 
   @@map("plans")
 }
@@ -129,9 +198,10 @@ model Subscription {
   id             String   @id @default(uuid())
   tenantId       String   @unique
   planId         String
-  status         String   @default("active") // active, pending, suspended, cancelled
+  status         String   @default("active") // active, pending, suspended, cancelled, trial
   startDate      DateTime
   endDate        DateTime?
+  trialEndDate   DateTime?
   autoRenew      Boolean  @default(true)
   paymentMethod  String?
   lastPaymentDate DateTime?
@@ -143,6 +213,8 @@ model Subscription {
   tenant         Tenant   @relation("TenantSubscription", fields: [tenantId], references: [id])
   plan           Plan     @relation(fields: [planId], references: [id])
   history        SubscriptionHistory[]
+  payments       Payment[]
+  invoices       SubscriptionInvoice[]
 
   @@map("subscriptions")
 }
@@ -211,5 +283,1257 @@ model SuperAdmin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  assignedTickets Ticket[]
+  globalNotifications GlobalNotification[]
+
   @@map("super_admins")
+}
+
+// ==============================
+// CRM MODELS
+// ==============================
+
+model Tag {
+  id          String   @id @default(uuid())
+  name        String
+  color       String   @default("#3B82F6")
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clients     ClientTag[]
+  companies   CompanyTag[]
+
+  @@map("tags")
+}
+
+model Client {
+  id               String               @id @default(uuid())
+  firstName        String
+  lastName         String
+  birthday         DateTime?
+  status           String               @default("active") // active, inactive
+  notes            String?
+  tenantId         String
+  companyId        String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company          Company?             @relation(fields: [companyId], references: [id])
+  tags             ClientTag[]
+  contacts         Contact[]
+  phones           Phone[]
+  emails           Email[]
+  addresses        Address[]
+  vehicles         Vehicle[]
+  receptions       Reception[]
+  calendarEvents   CalendarEvent[]
+  quotations       Quotation[]
+  workOrders       WorkOrder[]
+  invoices         Invoice[]
+  warranties       Warranty[]
+  posTransactions  PosTransaction[]      @relation("PosTransactionClient")
+
+  @@map("clients")
+}
+
+model ClientTag {
+  id        String @id @default(uuid())
+  clientId  String
+  tagId     String
+  tenantId  String
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, tagId])
+  @@map("client_tags")
+}
+
+model Company {
+  id          String       @id @default(uuid())
+  name        String
+  businessName String?
+  cuit        String?
+  status      String       @default("active") // active, inactive
+  notes       String?
+  tenantId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tags        CompanyTag[]
+  clients     Client[]
+  contacts    Contact[]
+  phones      Phone[]
+  emails      Email[]
+  addresses   Address[]
+
+  @@map("companies")
+}
+
+model CompanyTag {
+  id         String  @id @default(uuid())
+  companyId  String
+  tagId      String
+  tenantId   String
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tag        Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, tagId])
+  @@map("company_tags")
+}
+
+model Contact {
+  id          String     @id @default(uuid())
+  firstName   String
+  lastName    String
+  role        String?
+  tenantId    String
+  clientId    String?
+  companyId   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client?    @relation(fields: [clientId], references: [id])
+  company     Company?   @relation(fields: [companyId], references: [id])
+  phones      Phone[]
+  emails      Email[]
+
+  @@map("contacts")
+}
+
+model Phone {
+  id          String     @id @default(uuid())
+  number      String
+  type        String?    // mobile, work, home
+  isPrimary   Boolean    @default(false)
+  tenantId    String
+  clientId    String?
+  companyId   String?
+  contactId   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client?    @relation(fields: [clientId], references: [id])
+  company     Company?   @relation(fields: [companyId], references: [id])
+  contact     Contact?   @relation(fields: [contactId], references: [id])
+
+  @@map("phones")
+}
+
+model Email {
+  id          String     @id @default(uuid())
+  address     String
+  type        String?    // work, personal
+  isPrimary   Boolean    @default(false)
+  tenantId    String
+  clientId    String?
+  companyId   String?
+  contactId   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client?    @relation(fields: [clientId], references: [id])
+  company     Company?   @relation(fields: [companyId], references: [id])
+  contact     Contact?   @relation(fields: [contactId], references: [id])
+
+  @@map("emails")
+}
+
+model Address {
+  id          String     @id @default(uuid())
+  street      String?
+  number      String?
+  apartment   String?
+  city        String?
+  province    String?
+  country     String?    @default("Argentina")
+  postalCode  String?
+  type        String?    // home, work
+  isPrimary   Boolean    @default(false)
+  tenantId    String
+  clientId    String?
+  companyId   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client?    @relation(fields: [clientId], references: [id])
+  company     Company?   @relation(fields: [companyId], references: [id])
+
+  @@map("addresses")
+}
+
+// ==============================
+// VEHICLE MODELS
+// ==============================
+
+model Vehicle {
+  id          String     @id @default(uuid())
+  brand       String
+  model       String
+  year        Int?
+  plate       String?
+  vin         String?
+  engine      String?
+  chassis     String?
+  color       String?
+  mileage     Int?
+  fuel        String?    // gasoline, diesel, electric, hybrid
+  notes       String?
+  tenantId    String
+  clientId    String
+  branchId    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  branch      Branch?    @relation(fields: [branchId], references: [id])
+  documents   Document[]
+  receptions  Reception[]
+  calendarEvents CalendarEvent[]
+  quotations  Quotation[]
+  workOrders  WorkOrder[]
+  warranties  Warranty[]
+  statusLogs  VehicleStatusLog[]
+
+  @@map("vehicles")
+}
+
+// ==============================
+// RECEPTION MODEL
+// ==============================
+
+model Reception {
+  id              String        @id @default(uuid())
+  number          Int
+  date            DateTime      @default(now())
+  mileage         Int?
+  fuelLevel       String?       // empty, low, half, three_quarters, full
+  accessories     Json?         // array of { name, present }
+  visibleDamages  String?
+  checklist       Json?         // array of { item, checked }
+  signature       String?       // base64 or URL
+  photos          Json?         // array of URLs
+  notes           String?
+  tenantId        String
+  clientId        String
+  vehicleId       String
+  receivedById    String?
+  branchId        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  receivedBy      User?         @relation("ReceptionReceivedBy", fields: [receivedById], references: [id])
+  branch          Branch?       @relation(fields: [branchId], references: [id])
+  workOrders      WorkOrder[]
+
+  @@unique([tenantId, number])
+  @@map("receptions")
+}
+
+// ==============================
+// CALENDAR & SCHEDULING MODELS
+// ==============================
+
+model Service {
+  id               String               @id @default(uuid())
+  name             String
+  description      String?
+  duration         Int                  // in minutes
+  price            Decimal              @db.Decimal(12, 2)
+  active           Boolean              @default(true)
+  tenantId         String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  calendarEvents   CalendarEvent[]
+  quotationItems   QuotationItem[]
+  workOrderTasks   WorkOrderTask[]
+  posTransactionItems PosTransactionItem[]
+
+  @@map("services")
+}
+
+model CalendarEvent {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  type        String     // appointment, block, reminder
+  status      String     @default("scheduled") // scheduled, completed, cancelled, rescheduled
+  reminder    DateTime?
+  tenantId    String
+  clientId    String?
+  vehicleId   String?
+  mechanicId  String?
+  serviceId   String?
+  branchId    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client?    @relation(fields: [clientId], references: [id])
+  vehicle     Vehicle?   @relation(fields: [vehicleId], references: [id])
+  mechanic    User?      @relation("CalendarEventMechanic", fields: [mechanicId], references: [id])
+  service     Service?   @relation(fields: [serviceId], references: [id])
+  branch      Branch?    @relation(fields: [branchId], references: [id])
+
+  @@map("calendar_events")
+}
+
+// ==============================
+// VEHICLE STATUS LOG
+// ==============================
+
+model VehicleStatusLog {
+  id          String     @id @default(uuid())
+  status      String     // waiting, received, diagnosis, quotation, pending_approval, waiting_parts, repairing, testing, washing, finished, delivered
+  notes       String?
+  tenantId    String
+  vehicleId   String
+  workOrderId String?
+  changedById String?
+  createdAt   DateTime   @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+  changedBy   User?      @relation("VehicleStatusLogChangedBy", fields: [changedById], references: [id])
+
+  @@map("vehicle_status_logs")
+}
+
+// ==============================
+// QUOTATION MODELS
+// ==============================
+
+model Quotation {
+  id           String     @id @default(uuid())
+  number       Int
+  date         DateTime   @default(now())
+  validUntil   DateTime?
+  status       String     @default("draft") // draft, sent, approved, rejected, expired
+  subtotal     Decimal    @db.Decimal(12, 2)
+  discount     Decimal    @db.Decimal(12, 2) @default(0)
+  tax          Decimal    @db.Decimal(12, 2) @default(0)
+  total        Decimal    @db.Decimal(12, 2)
+  notes        String?
+  tenantId     String
+  clientId     String
+  vehicleId    String
+  approvedById String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client       Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  approvedBy   User?      @relation("QuotationApprovedBy", fields: [approvedById], references: [id])
+  items        QuotationItem[]
+  history      QuotationHistory[]
+  workOrders   WorkOrder[]
+
+  @@unique([tenantId, number])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String     @id @default(uuid())
+  type        String     // labor, part
+  description String
+  quantity    Int        @default(1)
+  unitPrice   Decimal    @db.Decimal(12, 2)
+  total       Decimal    @db.Decimal(12, 2)
+  quotationId String
+  serviceId   String?
+  inventoryItemId String?
+  createdAt   DateTime   @default(now())
+
+  quotation   Quotation  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  service     Service?   @relation(fields: [serviceId], references: [id])
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("quotation_items")
+}
+
+model QuotationHistory {
+  id          String     @id @default(uuid())
+  action      String     // created, updated, sent, approved, rejected, duplicated
+  notes       String?
+  quotationId String
+  changedById String?
+  createdAt   DateTime   @default(now())
+
+  quotation   Quotation  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  changedBy   User?      @relation("QuotationHistoryChangedBy", fields: [changedById], references: [id])
+
+  @@map("quotation_history")
+}
+
+// ==============================
+// WORK ORDER MODELS
+// ==============================
+
+model WorkOrder {
+  id                String                  @id @default(uuid())
+  number            Int
+  date              DateTime                @default(now())
+  priority          String                  @default("normal") // low, normal, high, urgent
+  status            String                  @default("pending") // pending, in_progress, completed, cancelled
+  notes             String?
+  tenantId          String
+  clientId          String
+  vehicleId         String
+  receptionId       String?
+  quotationId       String?
+  assignedToId      String?
+  branchId          String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client            Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicle           Vehicle                 @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  reception         Reception?              @relation(fields: [receptionId], references: [id])
+  quotation         Quotation?              @relation(fields: [quotationId], references: [id])
+  assignedTo        User?                   @relation("WorkOrderAssignedTo", fields: [assignedToId], references: [id])
+  branch            Branch?                 @relation(fields: [branchId], references: [id])
+  tasks             WorkOrderTask[]
+  materials         WorkOrderMaterial[]
+  invoices          Invoice[]
+  vehicleStatusLogs VehicleStatusLog[]
+  inventoryMovements InventoryMovement[]
+  warranties        Warranty[]
+  documents         Document[]
+
+  @@unique([tenantId, number])
+  @@map("work_orders")
+}
+
+model WorkOrderTask {
+  id           String       @id @default(uuid())
+  description  String
+  duration     Int?         // in minutes
+  status       String       @default("pending") // pending, in_progress, completed
+  notes        String?
+  workOrderId  String
+  serviceId    String?
+  assignedToId String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  workOrder    WorkOrder    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  service      Service?     @relation(fields: [serviceId], references: [id])
+  assignedTo   User?        @relation("WorkOrderTaskAssignedTo", fields: [assignedToId], references: [id])
+
+  @@map("work_order_tasks")
+}
+
+model WorkOrderMaterial {
+  id               String          @id @default(uuid())
+  description      String
+  quantity         Int             @default(1)
+  unitPrice        Decimal         @db.Decimal(12, 2)
+  total            Decimal         @db.Decimal(12, 2)
+  workOrderId      String
+  inventoryItemId  String?
+  createdAt        DateTime        @default(now())
+
+  workOrder        WorkOrder       @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItem    InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("work_order_materials")
+}
+
+// ==============================
+// INVENTORY MODELS
+// ==============================
+
+model InventoryCategory {
+  id          String             @id @default(uuid())
+  name        String
+  description String?
+  tenantId    String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items       InventoryItem[]
+
+  @@map("inventory_categories")
+}
+
+model InventoryItem {
+  id                String               @id @default(uuid())
+  name              String
+  description       String?
+  sku               String?
+  barcode           String?
+  qrCode            String?
+  categoryId        String?
+  type              String               // part, lubricant, tire, tool, supply
+  stock             Int                  @default(0)
+  minStock          Int                  @default(0)
+  branchId          String?
+  purchasePrice     Decimal              @db.Decimal(12, 2)
+  salePrice         Decimal              @db.Decimal(12, 2)
+  location          String?
+  notes             String?
+  tenantId          String
+  supplierId        String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category          InventoryCategory?   @relation(fields: [categoryId], references: [id])
+  supplier          Supplier?            @relation(fields: [supplierId], references: [id])
+  branch            Branch?              @relation(fields: [branchId], references: [id])
+  movements         InventoryMovement[]
+  workOrderMaterials WorkOrderMaterial[]
+  quotationItems    QuotationItem[]
+  posItems          PosTransactionItem[]
+  purchaseItems     PurchaseItem[]
+
+  @@map("inventory_items")
+}
+
+model InventoryMovement {
+  id             String          @id @default(uuid())
+  type           String          // in, out, adjustment
+  quantity       Int
+  reason         String?
+  reference      String?
+  tenantId       String
+  inventoryItemId String
+  purchaseId     String?
+  workOrderId    String?
+  posTransactionId String?
+  movedById      String?
+  createdAt      DateTime        @default(now())
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryItem  InventoryItem   @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  purchase       Purchase?       @relation(fields: [purchaseId], references: [id])
+  workOrder      WorkOrder?      @relation(fields: [workOrderId], references: [id])
+  posTransaction PosTransaction? @relation(fields: [posTransactionId], references: [id])
+  movedBy        User?           @relation("InventoryMovementMovedBy", fields: [movedById], references: [id])
+
+  @@map("inventory_movements")
+}
+
+model Supplier {
+  id          String       @id @default(uuid())
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  tenantId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items       InventoryItem[]
+  purchases   Purchase[]
+
+  @@map("suppliers")
+}
+
+model Purchase {
+  id            String             @id @default(uuid())
+  number        Int
+  date          DateTime           @default(now())
+  status        String             @default("pending") // pending, received, cancelled
+  subtotal      Decimal            @db.Decimal(12, 2)
+  tax           Decimal            @db.Decimal(12, 2) @default(0)
+  total         Decimal            @db.Decimal(12, 2)
+  notes         String?
+  tenantId      String
+  supplierId    String
+  receivedById  String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier      Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  receivedBy    User?              @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
+  items         PurchaseItem[]
+  movements     InventoryMovement[]
+
+  @@unique([tenantId, number])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id               String          @id @default(uuid())
+  description      String
+  quantity         Int             @default(1)
+  unitPrice        Decimal         @db.Decimal(12, 2)
+  total            Decimal         @db.Decimal(12, 2)
+  purchaseId       String
+  inventoryItemId  String?
+  createdAt        DateTime        @default(now())
+
+  purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  inventoryItem    InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("purchase_items")
+}
+
+// ==============================
+// POS MODELS
+// ==============================
+
+model PosTransaction {
+  id          String               @id @default(uuid())
+  number      Int
+  date        DateTime             @default(now())
+  type        String               // sale, return
+  subtotal    Decimal              @db.Decimal(12, 2)
+  discount    Decimal              @db.Decimal(12, 2) @default(0)
+  tax         Decimal              @db.Decimal(12, 2) @default(0)
+  total       Decimal              @db.Decimal(12, 2)
+  paymentMethod String               // cash, card, transfer
+  notes       String?
+  tenantId    String
+  clientId    String?
+  cashierId   String?
+  branchId    String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client?              @relation("PosTransactionClient", fields: [clientId], references: [id])
+  cashier     User?                @relation("PosTransactionCashier", fields: [cashierId], references: [id])
+  branch      Branch?            @relation(fields: [branchId], references: [id])
+  items       PosTransactionItem[]
+  movements   InventoryMovement[]
+
+  @@unique([tenantId, number])
+  @@map("pos_transactions")
+}
+
+model PosTransactionItem {
+  id               String            @id @default(uuid())
+  description      String
+  quantity         Int               @default(1)
+  unitPrice        Decimal           @db.Decimal(12, 2)
+  total            Decimal           @db.Decimal(12, 2)
+  posTransactionId String
+  inventoryItemId  String?
+  serviceId        String?
+  createdAt        DateTime          @default(now())
+
+  posTransaction   PosTransaction    @relation(fields: [posTransactionId], references: [id], onDelete: Cascade)
+  inventoryItem    InventoryItem?    @relation(fields: [inventoryItemId], references: [id])
+  service          Service?          @relation(fields: [serviceId], references: [id])
+
+  @@map("pos_transaction_items")
+}
+
+// ==============================
+// INVOICING MODELS
+// ==============================
+
+model Invoice {
+  id          String       @id @default(uuid())
+  number      Int
+  date        DateTime     @default(now())
+  type        String       // invoice, receipt, delivery_note, credit_note
+  status      String       @default("pending") // pending, paid, cancelled
+  subtotal    Decimal      @db.Decimal(12, 2)
+  discount    Decimal      @db.Decimal(12, 2) @default(0)
+  tax         Decimal      @db.Decimal(12, 2) @default(0)
+  total       Decimal      @db.Decimal(12, 2)
+  notes       String?
+  tenantId    String
+  clientId    String
+  workOrderId String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder?   @relation(fields: [workOrderId], references: [id])
+  items       InvoiceItem[]
+  warranties  Warranty[]
+
+  @@unique([tenantId, number])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String       @id @default(uuid())
+  description String
+  quantity    Int          @default(1)
+  unitPrice   Decimal      @db.Decimal(12, 2)
+  total       Decimal      @db.Decimal(12, 2)
+  invoiceId   String
+  createdAt   DateTime     @default(now())
+
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+// ==============================
+// WARRANTY MODEL
+// ==============================
+
+model Warranty {
+  id           String     @id @default(uuid())
+  startDate    DateTime   @default(now())
+  endDate      DateTime
+  description  String?
+  status       String     @default("active") // active, expired, claimed
+  claimNotes   String?
+  claimDate    DateTime?
+  tenantId     String
+  clientId     String
+  vehicleId    String
+  workOrderId  String?
+  invoiceId    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client       Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  workOrder    WorkOrder? @relation(fields: [workOrderId], references: [id])
+  invoice      Invoice?   @relation(fields: [invoiceId], references: [id])
+
+  @@map("warranties")
+}
+
+// ==============================
+// NOTIFICATION MODEL
+// ==============================
+
+model Notification {
+  id          String     @id @default(uuid())
+  title       String
+  message     String
+  type        String     // info, success, warning, error
+  read        Boolean    @default(false)
+  readAt      DateTime?
+  tenantId    String
+  userId      String?
+  createdAt   DateTime   @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?      @relation("NotificationUser", fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+// ==============================
+// DOCUMENT MODEL
+// ==============================
+
+model Document {
+  id          String     @id @default(uuid())
+  name        String
+  type        String     // photo, document, voucher, warranty, other
+  url         String
+  size        Int?       // in bytes
+  mimeType    String?
+  notes       String?
+  tenantId    String
+  vehicleId   String?
+  workOrderId String?
+  uploadedById String?
+  ticketId    String?
+  createdAt   DateTime   @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?   @relation(fields: [vehicleId], references: [id])
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+  uploadedBy  User?      @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  ticket      Ticket?    @relation(fields: [ticketId], references: [id])
+
+  @@map("documents")
+}
+
+// ==============================
+// PART 3: SaaS & GLOBAL MODELS
+// ==============================
+
+model GlobalSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  type        String   @default("string") // string, number, boolean, json
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("global_settings")
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  number      Int      @unique
+  title       String
+  description String
+  status      String   @default("open") // open, in_progress, waiting_response, closed
+  priority    String   @default("normal") // low, normal, high, urgent
+  tenantId    String?
+  userId      String?
+  assignedToId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant?     @relation(fields: [tenantId], references: [id])
+  user        User?       @relation(fields: [userId], references: [id])
+  assignedTo  SuperAdmin? @relation(fields: [assignedToId], references: [id])
+  comments    TicketComment[]
+  documents   Document[]
+
+  @@map("tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(uuid())
+  content   String
+  ticketId  String
+  authorId  String
+  authorType String   // user, super_admin
+  createdAt DateTime @default(now())
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_comments")
+}
+
+model Payment {
+  id               String   @id @default(uuid())
+  externalId       String?  // Mercado Pago payment ID
+  amount           Decimal  @db.Decimal(12, 2)
+  currency         String   @default("ARS")
+  status           String   // pending, approved, rejected, cancelled
+  paymentMethod    String?
+  operationNumber  String?
+  tenantId         String
+  subscriptionId   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscriptionInvoice SubscriptionInvoice?
+
+  @@map("payments")
+}
+
+model SubscriptionInvoice {
+  id             String   @id @default(uuid())
+  number         String   @unique
+  tenantId       String
+  subscriptionId String
+  planId         String
+  periodStart    DateTime
+  periodEnd      DateTime
+  subtotal       Decimal  @db.Decimal(12, 2)
+  tax            Decimal  @db.Decimal(12, 2)
+  total          Decimal  @db.Decimal(12, 2)
+  status         String   // pending, paid, cancelled
+  paymentId      String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  plan           Plan         @relation(fields: [planId], references: [id])
+  payment        Payment?     @relation(fields: [paymentId], references: [id])
+
+  @@map("subscription_invoices")
+}
+
+model GlobalNotification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  type        String   // info, success, warning, error
+  targetType  String   // all, specific_tenants, by_plan
+  targetData  Json?
+  sentAt      DateTime?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy   SuperAdmin @relation(fields: [createdById], references: [id])
+
+  @@map("global_notifications")
+}
+
+// Part 3.2 Models
+model Branch {
+  id               String               @id @default(uuid())
+  name             String
+  address          String?
+  city             String?
+  province         String?
+  phone            String?
+  email            String?
+  isActive         Boolean              @default(true)
+  tenantId         String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users            User[]
+  vehicles         Vehicle[]
+  receptions       Reception[]
+  workOrders       WorkOrder[]
+  inventoryItems   InventoryItem[]
+  posTransactions  PosTransaction[]
+  calendarEvents   CalendarEvent[]
+
+  @@map("branches")
+}
+
+model DashboardPreference {
+  id               String               @id @default(uuid())
+  userId           String
+  tenantId         String
+  widgets          Json                 // e.g., [{type: "vehicles_today", order:1}, ...]
+  theme            Json?                // colors, etc.
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@map("dashboard_preferences")
+}
+
+model SmartAlert {
+  id               String               @id @default(uuid())
+  type             String               // billing_drop, productivity_drop, pending_quotes, delayed_vehicles, low_stock, high_expenses, inactive_clients
+  message          String
+  severity         String               // info, warning, critical
+  isRead           Boolean              @default(false)
+  tenantId         String
+  metadata         Json?
+  createdAt        DateTime             @default(now())
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("smart_alerts")
+}
+
+model ScheduledReport {
+  id               String               @id @default(uuid())
+  name             String
+  type             String               // billing, profitability, productivity, inventory, clients, vehicles, services, mechanics, cash, expenses
+  format           String               // pdf, xlsx, csv
+  frequency        String               // daily, weekly, monthly, quarterly, yearly
+  recipients       Json                 // array of emails
+  filters          Json?
+  lastSentAt       DateTime?
+  nextSendAt       DateTime?
+  isActive         Boolean              @default(true)
+  tenantId         String
+  createdById      String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy        User                 @relation(fields: [createdById], references: [id])
+
+  @@map("scheduled_reports")
+}
+
+// Part 3.3: AI, Automation, Chat, WhatsApp
+model AISetting {
+  id               String               @id @default(uuid())
+  provider         String               // openai, anthropic, google, groq, ollama, deepseek, openrouter
+  model            String
+  temperature      Float                @default(0.7)
+  maxTokens        Int                  @default(1000)
+  language         String               @default("es")
+  personality      String?
+  customPrompts    Json?
+  apiKey           String?
+  tenantId         String
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId])
+  @@map("ai_settings")
+}
+
+model AIQuery {
+  id               String               @id @default(uuid())
+  query            String
+  response         String
+  tenantId         String
+  userId           String?
+  type             String               // assistant, diagnostic, budget, summary, report
+  tokensUsed       Int?
+  createdAt        DateTime             @default(now())
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User?                @relation(fields: [userId], references: [id])
+
+  @@map("ai_queries")
+}
+
+model ChatMessage {
+  id               String               @id @default(uuid())
+  content          String
+  type             String               // text, image, document
+  fileUrl          String?
+  mimeType         String?
+  tenantId         String
+  senderId         String
+  senderType       String               // user, client, system
+  conversationId   String
+  isRead           Boolean              @default(false)
+  createdAt        DateTime             @default(now())
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sender           User?                @relation(fields: [senderId], references: [id])
+
+  @@index([tenantId, conversationId])
+  @@map("chat_messages")
+}
+
+model AutomationRule {
+  id               String               @id @default(uuid())
+  name             String
+  trigger          String               // vehicle_status, stock_level, quotation_approved, warranty_expiry, etc.
+  triggerCondition Json
+  actions          Json
+  isActive         Boolean              @default(true)
+  tenantId         String
+  createdById      String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy        User                 @relation(fields: [createdById], references: [id])
+  automationLogs   AutomationLog[]
+
+  @@map("automation_rules")
+}
+
+model AutomationLog {
+  id               String               @id @default(uuid())
+  ruleId           String
+  tenantId         String
+  status           String               // success, failed
+  details          Json?
+  createdAt        DateTime             @default(now())
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rule             AutomationRule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@map("automation_logs")
+}
+
+model WhatsAppIntegration {
+  id               String               @id @default(uuid())
+  phoneNumber      String
+  apiKey           String?
+  apiSecret        String?
+  webhookUrl       String?
+  isActive         Boolean              @default(true)
+  tenantId         String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId])
+  @@map("whatsapp_integrations")
+}
+
+model WhatsAppMessage {
+  id               String               @id @default(uuid())
+  to               String
+  from             String
+  content          String
+  type             String               // text, image, document
+  status           String               // sent, delivered, read, failed
+  mediaUrl         String?
+  tenantId         String
+  createdAt        DateTime             @default(now())
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_messages")
+}
+
+model EmailTemplate {
+  id               String               @id @default(uuid())
+  name             String
+  type             String               // welcome, password_reset, appointment_confirmation, quotation, invoice, reminder, promotion
+  subject          String
+  bodyHtml         String
+  bodyText         String?
+  tenantId         String
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type])
+  @@map("email_templates")
+}
+
+// Part 3.4 Models
+model APIKey {
+  id               String               @id @default(uuid())
+  name             String
+  key              String               @unique
+  scopes           Json                 // e.g., ["clients:read", "clients:write"]
+  expiresAt        DateTime?
+  isActive         Boolean              @default(true)
+  tenantId         String
+  createdById      String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  lastUsedAt       DateTime?
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy        User                 @relation(fields: [createdById], references: [id])
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id               String               @id @default(uuid())
+  name             String
+  url              String
+  events           Json                 // e.g., ["client.created", "vehicle.created"]
+  secret           String
+  isActive         Boolean              @default(true)
+  tenantId         String
+  createdById      String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy        User                 @relation(fields: [createdById], references: [id])
+  logs             WebhookLog[]
+
+  @@map("webhooks")
+}
+
+model WebhookLog {
+  id               String               @id @default(uuid())
+  webhookId        String
+  event            String
+  payload          Json
+  status           String               // pending, success, failed
+  statusCode       Int?
+  response         String?
+  attempts         Int                  @default(0)
+  maxAttempts      Int                  @default(5)
+  nextRetryAt      DateTime?
+  tenantId         String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  webhook          Webhook              @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_logs")
+}
+
+model WhiteLabelConfig {
+  id               String               @id @default(uuid())
+  tenantId         String               @unique
+  brandName        String
+  primaryColor     String               @default("#6366f1")
+  secondaryColor   String               @default("#8b5cf6")
+  logoUrl          String?
+  faviconUrl       String?
+  customDomain     String?
+  customLoginText  String?
+  customEmailFrom  String?
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("white_label_configs")
+}
+
+model FeatureFlag {
+  id               String               @id @default(uuid())
+  key              String               @unique
+  name             String
+  description      String?
+  type             String               // boolean, number, string
+  defaultValue     String
+  isPublic         Boolean              @default(false)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  values           FeatureFlagValue[]
+
+  @@map("feature_flags")
+}
+
+model FeatureFlagValue {
+  id               String               @id @default(uuid())
+  flagId           String
+  tenantId         String?
+  userId           String?
+  value            String
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  flag             FeatureFlag          @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  tenant           Tenant?              @relation(fields: [tenantId], references: [id])
+  user             User?                @relation(fields: [userId], references: [id])
+
+  @@unique([flagId, tenantId, userId])
+  @@map("feature_flag_values")
+}
+
+model Session {
+  id               String               @id @default(uuid())
+  userId           String
+  tenantId         String
+  token            String
+  deviceInfo       Json?
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  lastActivityAt   DateTime             @default(now())
+  createdAt        DateTime             @default(now())
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
 }

@@ -12,6 +12,15 @@ import {
   Moon,
   Sun,
   LogOut,
+  UsersRound,
+  Car,
+  Calendar,
+  ClipboardList,
+  FileText,
+  Package,
+  ShoppingCart,
+  Receipt,
+  ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -19,6 +28,16 @@ import { useAuth } from '@/contexts/AuthContext'
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+  { icon: UsersRound, label: 'Clientes', href: '/dashboard/clients' },
+  { icon: Car, label: 'Vehículos', href: '/dashboard/vehicles' },
+  { icon: Calendar, label: 'Agenda', href: '/dashboard/calendar' },
+  { icon: ClipboardList, label: 'Recepción', href: '/dashboard/receptions' },
+  { icon: FileText, label: 'Presupuestos', href: '/dashboard/quotations' },
+  { icon: ClipboardList, label: 'Ordenes de Trabajo', href: '/dashboard/work-orders' },
+  { icon: Package, label: 'Inventario', href: '/dashboard/inventory' },
+  { icon: ShoppingCart, label: 'POS', href: '/dashboard/pos' },
+  { icon: Receipt, label: 'Facturación', href: '/dashboard/invoices' },
+  { icon: ShieldCheck, label: 'Garantías', href: '/dashboard/warranties' },
   { icon: Users, label: 'Usuarios', href: '/dashboard/users' },
   { icon: Settings, label: 'Configuración', href: '/dashboard/settings' },
 ]
