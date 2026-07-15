@@ -4,7 +4,7 @@ import { jsonResponse, errorResponse } from '../../../../lib/api'
 // GET all global settings
 export async function GET() {
   try {
-    const settings = await prisma.globalSetting.findMany({ orderBy: { key: 'asc' })
+    const settings = await prisma.globalSetting.findMany({ orderBy: { key: 'asc' } })
     return jsonResponse(settings)
   } catch (error) {
     console.error('Error fetching settings:', error)
@@ -28,7 +28,7 @@ export async function POST(req) {
         results.push(updated)
       } else {
         const created = await prisma.globalSetting.create({
-          data: { key, value, type, type: type || 'string', description },
+          data: { key, value, type: type || 'string', description },
         })
         results.push(created)
       }

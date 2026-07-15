@@ -75,6 +75,7 @@ export default function SettingsPage() {
                         prev.map((s) =>
                           s.key === setting.key ? { ...s, value: e.target.value } : s
                         )
+                      )
                     }}
                   />
                 </div>

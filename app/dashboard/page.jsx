@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useAuth } from '@/contexts/AuthContext';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock chart data (replace with real data from API later)
 const chartData = [
@@ -20,6 +19,7 @@ export default function DashboardPage() {
   const { tenant, user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -167,16 +167,21 @@ export default function DashboardPage() {
             <CardTitle className="text-lg font-medium">Facturación Semanal</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="space-y-4">
+              {chartData.map((item) => (
+                <div key={item.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+                    <span>{item.name}</span>
+                    <span>${item.value.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div
+                      className="h-full rounded-full bg-indigo-500"
+                      style={{ width: `${(item.value / maxChartValue) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

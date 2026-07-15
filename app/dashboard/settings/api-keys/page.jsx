@@ -65,25 +65,26 @@ export default function APIKeysPage() {
             ) : (
               <div className="space-y-3">
                 {apiKeys.map((key) => (
-                <div key={key.id} className="flex justify-between items-center border border-gray-200 dark:border-gray-800 p-3 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <h4 className="font-medium">{key.name}</h4>
-                      <p className="text-gray-500 text-sm">{key.key}</p>
+                  <div key={key.id} className="flex justify-between items-center border border-gray-200 dark:border-gray-800 p-3 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <h4 className="font-medium">{key.name}</h4>
+                        <p className="text-gray-500 text-sm">{key.key}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(key.key)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(key.key)}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
+                ))}
               </div>
             )}
           </CardContent>
