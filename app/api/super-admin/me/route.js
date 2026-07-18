@@ -1,5 +1,5 @@
-import { jsonResponse } from '../../../../lib/api'
-import { requireSuperAdminContext } from '../../../../lib/super-admin-auth'
+import { jsonResponse } from '@/lib/api'
+import { requireSuperAdminContext } from '@/lib/super-admin-auth'
 
 export const dynamic = 'force-dynamic'
 

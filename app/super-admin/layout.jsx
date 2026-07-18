@@ -21,7 +21,6 @@ import {
   Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const menuItems = [
@@ -41,24 +40,19 @@ export default function SuperAdminLayout({ children }) {
   const [accessState, setAccessState] = useState('checking')
   const [superAdmin, setSuperAdmin] = useState(null)
   const { theme, toggleTheme } = useTheme()
-  const { loading: authLoading, user, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
 
   useEffect(() => {
+    // Si estamos en la página de login, no hacer validación
+    if (pathname === '/super-admin/login') {
+      setAccessState('skip')
+      return
+    }
+
     let active = true
 
     const checkAccess = async () => {
-      if (authLoading) {
-        return
-      }
-
-      if (!user) {
-        setAccessState('unauthorized')
-        router.replace('/login')
-        return
-      }
-
       try {
         const response = await fetch('/api/super-admin/me', {
           cache: 'no-store',
@@ -70,9 +64,8 @@ export default function SuperAdminLayout({ children }) {
         }
 
         if (!response.ok) {
-          setAccessState('forbidden')
-          setSuperAdmin(null)
-          router.replace('/dashboard')
+          setAccessState('unauthorized')
+          router.replace('/super-admin/login')
           return
         }
 
@@ -83,7 +76,8 @@ export default function SuperAdminLayout({ children }) {
         if (!active) {
           return
         }
-        setAccessState('error')
+        setAccessState('unauthorized')
+        router.replace('/super-admin/login')
       }
     }
 
@@ -92,14 +86,20 @@ export default function SuperAdminLayout({ children }) {
     return () => {
       active = false
     }
-  }, [authLoading, router, user])
+  }, [router, pathname])
 
   const handleSignOut = async () => {
-    await signOut()
-    router.replace('/login')
+    try {
+      await fetch('/api/super-admin/logout', {
+        method: 'POST',
+      })
+    } catch (error) {
+      console.error('Error al cerrar sesión', error)
+    }
+    router.replace('/super-admin/login')
   }
 
-  if (authLoading || accessState === 'checking') {
+  if (accessState === 'checking') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="rounded-2xl border border-gray-200 bg-white px-6 py-5 text-sm text-gray-600 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
@@ -109,20 +109,23 @@ export default function SuperAdminLayout({ children }) {
     )
   }
 
-  if (accessState === 'error') {
+  if (accessState === 'skip') {
+    return <>{children}</>
+  }
+
+  if (accessState === 'error' || accessState === 'unauthorized') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
         <div className="max-w-md rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm dark:border-red-900/50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">No se pudo validar el acceso</h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Hubo un problema al verificar los permisos del panel global.
+            {accessState === 'unauthorized' 
+              ? 'Tu sesión no es válida o ha expirado. Por favor, inicia sesión nuevamente.'
+              : 'Hubo un problema al verificar los permisos del panel global.'}
           </p>
           <div className="mt-4 flex justify-center gap-3">
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              Reintentar
-            </Button>
-            <Button onClick={() => router.replace('/dashboard')}>
-              Volver al dashboard
+            <Button onClick={() => router.replace('/super-admin/login')}>
+              Ir a login
             </Button>
           </div>
         </div>
