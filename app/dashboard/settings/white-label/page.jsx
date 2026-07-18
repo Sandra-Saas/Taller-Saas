@@ -1,28 +1,73 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 
+const defaultConfig = {
+  brandName: 'Taller SaaS',
+  primaryColor: '#6366f1',
+  secondaryColor: '#8b5cf6',
+  logoUrl: '',
+  faviconUrl: '',
+  customDomain: '',
+  customLoginText: '',
+  customEmailFrom: '',
+  isActive: true
+};
+
 export default function WhiteLabelPage() {
-  const [config, setConfig] = useState({
-    brandName: 'Taller SaaS',
-    primaryColor: '#6366f1',
-    secondaryColor: '#8b5cf6',
-    logoUrl: '',
-    faviconUrl: '',
-    customDomain: '',
-    customLoginText: '',
-    customEmailFrom: '',
-    isActive: true
-  });
+  const [config, setConfig] = useState(defaultConfig);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const storedConfig = window.localStorage.getItem('white-label-config');
+      if (storedConfig) {
+        const parsedConfig = JSON.parse(storedConfig);
+        setConfig((prev) => ({ ...prev, ...parsedConfig }));
+      }
+    } catch (error) {
+      console.error('No se pudo leer la configuración guardada', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('white-label-config', JSON.stringify(config));
+  }, [config]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Save config
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('white-label-config', JSON.stringify(config));
+      window.dispatchEvent(new Event('white-label-config-updated'));
+    }
     alert('Configuración guardada correctamente!');
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const nextValue = typeof dataUrl === 'string' ? dataUrl : '';
+
+      setConfig((prev) => ({ ...prev, logoUrl: nextValue }));
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('white-label-logo', nextValue);
+        window.localStorage.setItem('white-label-logo-url', nextValue);
+        window.dispatchEvent(new Event('white-label-config-updated'));
+      }
+    };
+
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -69,12 +114,34 @@ export default function WhiteLabelPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Logo (URL)</Label>
+              <Label>Logo</Label>
               <Input
                 value={config.logoUrl}
-                onChange={(e) => setConfig({ ...config, logoUrl: e.target.value })}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setConfig((prev) => ({ ...prev, logoUrl: nextValue }));
+
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.setItem('white-label-logo-url', nextValue);
+                    window.localStorage.setItem('white-label-logo', nextValue);
+                    window.dispatchEvent(new Event('white-label-config-updated'));
+                  }
+                }}
                 placeholder="https://ejemplo.com/logo.png"
               />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="mt-3 block w-full text-sm text-slate-300 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-500"
+              />
+              <p className="mt-2 text-xs text-slate-400">Puedes subir un archivo o pegar una URL.</p>
+              {config.logoUrl && (
+                <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+                  <p className="mb-2 text-sm text-slate-300">Vista previa</p>
+                  <img src={config.logoUrl} alt="Vista previa del logo" className="max-h-24 w-auto object-contain" />
+                </div>
+              )}
             </div>
             <div>
               <Label>Favicon (URL)</Label>
