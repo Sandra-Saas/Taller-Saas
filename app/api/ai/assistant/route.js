@@ -1,43 +1,46 @@
-import prisma from '../../../../lib/prisma';
-import { jsonResponse, errorResponse } from '../../../../lib/api';
-import { generateAIResponse, buildSystemPrompt } from '../../../../lib/ai';
+import { jsonResponse, errorResponse } from '../../../../lib/api'
+import { requireTenantContext } from '../../../../lib/request-context'
+import { planCopilotResponse, saveAIQueryLog } from '../../../../lib/ai-copilot'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(req) {
   try {
-    // TODO: Get tenant from auth context
-    const tenantId = 'test-tenant-id'; // Replace with real auth tenant ID
+    const tenantResult = await requireTenantContext(req, { allowApiKey: false })
+    if (!tenantResult.ok) {
+      return tenantResult.error
+    }
 
-    const data = await req.json();
-    const { query, messages } = data;
+    const { context } = tenantResult
+    const data = await req.json()
+    const query = String(data?.query || '').trim()
 
-    // Fetch tenant data to build system prompt
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      include: {
-        vehicles: true,
-        clients: true,
-        workOrders: true,
-        quotations: true,
-        calendarEvents: true,
-        inventoryItems: true,
-      },
-    });
+    if (!query) {
+      return errorResponse('Ingresá una consulta para el asistente.', 400)
+    }
 
-    const systemPrompt = buildSystemPrompt(tenant);
+    const result = await planCopilotResponse({
+      tenantId: context.tenantId,
+      query,
+    })
 
-    const response = await generateAIResponse(
-      tenantId,
-      [
-        { role: 'system', content: systemPrompt },
-        ...(messages || []),
-        { role: 'user', content: query },
-      ],
-      'assistant'
-    );
+    await saveAIQueryLog({
+      tenantId: context.tenantId,
+      userId: context.actingUserId,
+      query,
+      response: result.response,
+      type: 'assistant',
+      tokensUsed: result.tokensUsed,
+    })
 
-    return jsonResponse({ response });
+    return jsonResponse({
+      response: result.response,
+      type: result.type,
+      proposal: result.proposal || null,
+      snapshot: result.snapshot,
+    })
   } catch (error) {
-    console.error('Error generating AI response:', error);
-    return errorResponse('Failed to generate AI response');
+    console.error('Error generating AI response:', error)
+    return errorResponse('No se pudo generar la respuesta del asistente.')
   }
 }

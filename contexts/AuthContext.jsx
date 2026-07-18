@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { clearSessionCookies, getTenantFromUser, persistSessionCookies } from '@/lib/auth'
+import { getTenantFromUser } from '@/lib/auth'
 
 const AuthContext = createContext()
 
@@ -10,6 +10,58 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [tenant, setTenant] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [currentSession, setCurrentSession] = useState(null)
+
+  const syncAuthCookies = async (session) => {
+    try {
+      const method = session?.access_token ? 'POST' : 'DELETE'
+      const payload = session?.access_token
+        ? {
+            accessToken: session.access_token,
+            expiresAt: session.expires_at || null,
+          }
+        : undefined
+
+      await fetch('/api/auth/cookies', {
+        method,
+        headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+      })
+    } catch (error) {
+      console.error('No se pudieron sincronizar las cookies HttpOnly de la sesión', error)
+    }
+  }
+
+  const getDeviceInfo = () => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    return {
+      platform: navigator.platform || '',
+      language: navigator.language || '',
+      deviceLabel: navigator.userAgent || '',
+    }
+  }
+
+  const syncServerSession = async (session) => {
+    if (!session?.access_token) {
+      return
+    }
+
+    try {
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+          deviceInfo: getDeviceInfo(),
+        }),
+      })
+    } catch (error) {
+      console.error('No se pudo sincronizar la sesión actual', error)
+    }
+  }
 
   useEffect(() => {
     const applySession = (session) => {
@@ -17,12 +69,14 @@ export function AuthProvider({ children }) {
 
       setUser(nextUser)
       setTenant(getTenantFromUser(nextUser))
-      persistSessionCookies(session)
+      setCurrentSession(session || null)
     }
 
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       applySession(session)
+      await syncAuthCookies(session)
+      await syncServerSession(session)
       setLoading(false)
     }
 
@@ -31,12 +85,46 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         applySession(session)
+        await syncAuthCookies(session)
+        await syncServerSession(session)
         setLoading(false)
       }
     )
 
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!currentSession?.access_token) {
+      return undefined
+    }
+
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = await response.json()
+        if (data.active === false) {
+          await supabase.auth.signOut()
+          setUser(null)
+          setTenant(null)
+          setCurrentSession(null)
+          await syncAuthCookies(null)
+        }
+      } catch (error) {
+        console.error('No se pudo validar el estado remoto de la sesión', error)
+      }
+    }, 60000)
+
+    return () => window.clearInterval(interval)
+  }, [currentSession])
 
   const signIn = async (email, password) => {
     return await supabase.auth.signInWithPassword({ email, password })
@@ -46,11 +134,22 @@ export function AuthProvider({ children }) {
     return await supabase.auth.signUp({ email, password })
   }
 
-  const signOut = async () => {
+  const signOut = async (options = {}) => {
+    if (!options.skipServerCleanup) {
+      try {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+        })
+      } catch (error) {
+        console.error('No se pudo limpiar la sesión del servidor', error)
+      }
+    }
+
     await supabase.auth.signOut()
     setUser(null)
     setTenant(null)
-    clearSessionCookies()
+    setCurrentSession(null)
+    await syncAuthCookies(null)
   }
 
   return (

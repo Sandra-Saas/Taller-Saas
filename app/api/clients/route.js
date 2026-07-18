@@ -1,57 +1,103 @@
-import prisma from '../../../lib/prisma';
-import { jsonResponse, errorResponse } from '../../../lib/api';
+import prisma from '../../../lib/prisma'
+import { jsonResponse, errorResponse } from '../../../lib/api'
+import { createAuditLog } from '../../../lib/audit'
+import { requireTenantContext } from '../../../lib/request-context'
+import { readSanitizedJson, sanitizeString } from '../../../lib/request-security'
 
-// Get all clients
+export const dynamic = 'force-dynamic'
+
+const clientInclude = {
+  phones: true,
+  emails: true,
+  addresses: true,
+  company: true,
+  tags: { include: { tag: true } },
+}
+
 export async function GET(req) {
   try {
-    const tenantId = 'test-tenant-id'; // TODO: Replace with real tenant from auth
+    const tenantResult = await requireTenantContext(req, { allowApiKey: false })
+    if (!tenantResult.ok) {
+      return tenantResult.error
+    }
+
+    const { context } = tenantResult
     const clients = await prisma.client.findMany({
-      where: { tenantId },
-      include: {
-        phones: true,
-        emails: true,
-        addresses: true,
-        company: true,
-        tags: { include: { tag: true } },
-      },
+      where: { tenantId: context.tenantId },
+      include: clientInclude,
       orderBy: { createdAt: 'desc' },
-    });
-    return jsonResponse(clients);
+    })
+
+    return jsonResponse(clients)
   } catch (error) {
-    console.error('Error fetching clients:', error);
-    return errorResponse('Failed to fetch clients');
+    console.error('Error fetching clients:', error)
+    return errorResponse('No se pudieron obtener los clientes.')
   }
 }
 
-// Create a client
 export async function POST(req) {
   try {
-    const data = await req.json();
-    const tenantId = 'test-tenant-id'; // TODO: Replace with real tenant from auth
-    
-    // Get next number (we'll implement proper numbering later)
-    const lastClient = await prisma.client.findFirst({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const tenantResult = await requireTenantContext(req, { allowApiKey: false })
+    if (!tenantResult.ok) {
+      return tenantResult.error
+    }
+
+    const { context } = tenantResult
+    const data = await readSanitizedJson(req)
+    const firstName = sanitizeString(data.firstName)
+    const lastName = sanitizeString(data.lastName)
+
+    if (!firstName || !lastName) {
+      return errorResponse('Nombre y apellido son obligatorios para crear el cliente.', 400)
+    }
+
+    let companyId = null
+    if (data.companyId) {
+      const company = await prisma.company.findFirst({
+        where: {
+          id: data.companyId,
+          tenantId: context.tenantId,
+        },
+      })
+
+      if (!company) {
+        return errorResponse('La empresa asociada no pertenece al tenant actual.', 400)
+      }
+
+      companyId = company.id
+    }
 
     const client = await prisma.client.create({
       data: {
-        ...data,
-        tenantId,
+        firstName,
+        lastName,
+        status: sanitizeString(data.status) || 'active',
+        notes: sanitizeString(data.notes) || null,
+        birthday: data.birthday ? new Date(data.birthday) : null,
+        companyId,
+        tenantId: context.tenantId,
       },
-      include: {
-        phones: true,
-        emails: true,
-        addresses: true,
-        company: true,
-        tags: { include: { tag: true } },
+      include: clientInclude,
+    })
+
+    await createAuditLog({
+      tenantId: context.tenantId,
+      userId: context.actingUserId,
+      action: 'client.created',
+      entity: 'Client',
+      entityId: client.id,
+      newData: {
+        firstName: client.firstName,
+        lastName: client.lastName,
+        companyId: client.companyId,
       },
-    });
-    
-    return jsonResponse(client, 201);
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    })
+
+    return jsonResponse(client, 201)
   } catch (error) {
-    console.error('Error creating client:', error);
-    return errorResponse('Failed to create client');
+    console.error('Error creating client:', error)
+    return errorResponse('No se pudo crear el cliente.')
   }
 }

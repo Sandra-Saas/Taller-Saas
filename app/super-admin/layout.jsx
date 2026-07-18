@@ -18,10 +18,11 @@ import {
   Ticket,
   Bell,
   Shield,
+  Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
-// TODO: Add super admin auth context
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/super-admin' },
@@ -31,27 +32,106 @@ const menuItems = [
   { icon: DollarSign, label: 'Pagos', href: '/super-admin/payments' },
   { icon: Ticket, label: 'Tickets', href: '/super-admin/tickets' },
   { icon: Bell, label: 'Notificaciones', href: '/super-admin/notifications' },
+  { icon: Activity, label: 'Observabilidad', href: '/super-admin/observability' },
   { icon: Settings, label: 'Configuración', href: '/super-admin/settings' },
 ]
 
 export default function SuperAdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [accessState, setAccessState] = useState('checking')
+  const [superAdmin, setSuperAdmin] = useState(null)
   const { theme, toggleTheme } = useTheme()
+  const { loading: authLoading, user, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
 
-  // TODO: Replace with real super admin auth check
-  const [isSuperAdmin, setIsSuperAdmin] = useState(true) // For demo purposes
-
   useEffect(() => {
-    // TODO: Implement real check
-    if (!isSuperAdmin) {
-      router.replace('/login')
+    let active = true
+
+    const checkAccess = async () => {
+      if (authLoading) {
+        return
+      }
+
+      if (!user) {
+        setAccessState('unauthorized')
+        router.replace('/login')
+        return
+      }
+
+      try {
+        const response = await fetch('/api/super-admin/me', {
+          cache: 'no-store',
+        })
+        const data = await response.json()
+
+        if (!active) {
+          return
+        }
+
+        if (!response.ok) {
+          setAccessState('forbidden')
+          setSuperAdmin(null)
+          router.replace('/dashboard')
+          return
+        }
+
+        setSuperAdmin(data.superAdmin || null)
+        setAccessState('granted')
+      } catch (error) {
+        console.error('No se pudo validar el acceso de super admin', error)
+        if (!active) {
+          return
+        }
+        setAccessState('error')
+      }
     }
-  }, [isSuperAdmin, router])
+
+    checkAccess()
+
+    return () => {
+      active = false
+    }
+  }, [authLoading, router, user])
 
   const handleSignOut = async () => {
+    await signOut()
     router.replace('/login')
+  }
+
+  if (authLoading || accessState === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="rounded-2xl border border-gray-200 bg-white px-6 py-5 text-sm text-gray-600 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+          Validando acceso de super administrador...
+        </div>
+      </div>
+    )
+  }
+
+  if (accessState === 'error') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
+        <div className="max-w-md rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm dark:border-red-900/50 dark:bg-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">No se pudo validar el acceso</h2>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Hubo un problema al verificar los permisos del panel global.
+          </p>
+          <div className="mt-4 flex justify-center gap-3">
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Reintentar
+            </Button>
+            <Button onClick={() => router.replace('/dashboard')}>
+              Volver al dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (accessState !== 'granted') {
+    return null
   }
 
   return (
@@ -75,7 +155,12 @@ export default function SuperAdminLayout({ children }) {
             <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center">
               <Shield className="h-5 w-5 text-indigo-600" />
             </div>
-            <span className="text-xl font-bold text-white">Super Admin</span>
+            <div>
+              <span className="block text-xl font-bold text-white">Super Admin</span>
+              <span className="block text-xs text-indigo-200">
+                {superAdmin?.email || 'Acceso global'}
+              </span>
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -145,9 +230,14 @@ export default function SuperAdminLayout({ children }) {
               <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center dark:bg-indigo-900">
                 <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Super Admin
-              </span>
+              <div>
+                <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {superAdmin ? `${superAdmin.firstName} ${superAdmin.lastName}` : 'Super Admin'}
+                </span>
+                <span className="block text-xs text-gray-500 dark:text-gray-400">
+                  {superAdmin?.email || 'Acceso global'}
+                </span>
+              </div>
             </div>
           </div>
         </header>

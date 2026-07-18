@@ -9,8 +9,8 @@ export async function POST(req) {
     console.log('Mercado Pago webhook received:', body)
 
     // Validate webhook signature
-    if (!validateWebhookSignature(req)) {
-      return errorResponse('Invalid signature', 403)
+    if (!validateWebhookSignature(req, body)) {
+      return errorResponse('Invalid signature', 401)
     }
 
     const { type, data } = body

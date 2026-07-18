@@ -20,19 +20,45 @@ const defaultConfig = {
 
 export default function WhiteLabelPage() {
   const [config, setConfig] = useState(defaultConfig);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch('/api/v1/white-label');
+        if (!response.ok) {
+          throw new Error('No se pudo cargar la configuración actual.');
+        }
 
-    try {
-      const storedConfig = window.localStorage.getItem('white-label-config');
-      if (storedConfig) {
-        const parsedConfig = JSON.parse(storedConfig);
-        setConfig((prev) => ({ ...prev, ...parsedConfig }));
+        const data = await response.json();
+        setConfig((prev) => ({ ...prev, ...data }));
+
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('white-label-config', JSON.stringify(data));
+          if (data.logoUrl) {
+            window.localStorage.setItem('white-label-logo', data.logoUrl);
+            window.localStorage.setItem('white-label-logo-url', data.logoUrl);
+          }
+        }
+      } catch (error) {
+        console.error('No se pudo leer la configuración guardada', error);
+
+        if (typeof window !== 'undefined') {
+          const storedConfig = window.localStorage.getItem('white-label-config');
+          if (storedConfig) {
+            const parsedConfig = JSON.parse(storedConfig);
+            setConfig((prev) => ({ ...prev, ...parsedConfig }));
+          }
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('No se pudo leer la configuración guardada', error);
-    }
+    };
+
+    fetchConfig();
   }, []);
 
   useEffect(() => {
@@ -42,11 +68,40 @@ export default function WhiteLabelPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('white-label-config', JSON.stringify(config));
-      window.dispatchEvent(new Event('white-label-config-updated'));
+    setSaving(true);
+    setMessage('');
+    setErrorMessage('');
+
+    try {
+      const response = await fetch('/api/v1/white-label', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'No se pudo guardar la configuración.');
+      }
+
+      const savedConfig = await response.json();
+      setConfig((prev) => ({ ...prev, ...savedConfig }));
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('white-label-config', JSON.stringify(savedConfig));
+        if (savedConfig.logoUrl) {
+          window.localStorage.setItem('white-label-logo', savedConfig.logoUrl);
+          window.localStorage.setItem('white-label-logo-url', savedConfig.logoUrl);
+        }
+        window.dispatchEvent(new Event('white-label-config-updated'));
+      }
+
+      setMessage('Configuración guardada correctamente!');
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setSaving(false);
     }
-    alert('Configuración guardada correctamente!');
   };
 
   const handleLogoUpload = (e) => {
@@ -74,6 +129,10 @@ export default function WhiteLabelPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">White Label</h1>
       <p className="text-gray-500">Personaliza la apariencia y marca del sistema</p>
+
+      {loading && <div className="text-sm text-gray-500">Cargando configuración actual...</div>}
+      {message && <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">{message}</div>}
+      {errorMessage && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{errorMessage}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -187,7 +246,9 @@ export default function WhiteLabelPage() {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit">Guardar Configuración</Button>
+          <Button type="submit" disabled={saving || loading}>
+            {saving ? 'Guardando...' : 'Guardar Configuración'}
+          </Button>
         </div>
       </form>
     </div>

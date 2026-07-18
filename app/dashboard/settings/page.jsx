@@ -1,7 +1,36 @@
 'use client'
 
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
+
+const settingsModules = [
+  {
+    title: 'IA',
+    description: 'Proveedor, costos, límites y prompt base del Copilot.',
+    href: '/dashboard/settings/ai',
+  },
+  {
+    title: 'White Label',
+    description: 'Marca, colores, logo y dominio comercial del tenant.',
+    href: '/dashboard/settings/white-label',
+  },
+  {
+    title: 'API Keys',
+    description: 'Credenciales para la API Premium por empresa.',
+    href: '/dashboard/settings/api-keys',
+  },
+  {
+    title: 'Feature Flags',
+    description: 'Activación por empresa, usuario, plan y ambiente.',
+    href: '/dashboard/settings/feature-flags',
+  },
+  {
+    title: 'Sesiones',
+    description: 'Sesiones activas, actividad reciente y cierre remoto.',
+    href: '/dashboard/settings/sessions',
+  },
+]
 
 export default function SettingsPage() {
   const { tenant } = useAuth()
@@ -41,6 +70,22 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {settingsModules.map((module) => (
+          <Link key={module.href} href={module.href}>
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg">{module.title}</CardTitle>
+                <CardDescription>{module.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                Abrir módulo
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }
