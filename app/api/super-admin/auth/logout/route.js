@@ -17,7 +17,7 @@ export async function POST(req) {
     console.error('Error en logout de super admin:', error)
     return jsonResponse(
       { error: 'Error al cerrar sesión' },
-      { status: 500 }
+      500
     )
   }
 }

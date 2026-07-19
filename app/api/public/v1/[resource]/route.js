@@ -79,10 +79,35 @@ function buildSearchWhere(resource, params, tenantId) {
         { name: { contains: q, mode: 'insensitive' } },
         { sku: { contains: q, mode: 'insensitive' } },
       ]
+    } else if (resource === 'quotations' || resource === 'work-orders' || resource === 'invoices' || resource === 'receptions' || resource === 'pos') {
+      const numericQuery = Number(q)
+      if (Number.isFinite(numericQuery)) {
+        where.OR = [{ number: numericQuery }]
+      }
     }
   }
 
   return where
+}
+
+async function getNextTenantNumber(modelName, tenantId) {
+  const latest = await prisma[modelName].findFirst({
+    where: { tenantId },
+    orderBy: { number: 'desc' },
+    select: { number: true },
+  })
+
+  return (latest?.number || 0) + 1
+}
+
+async function findOwnedRecord(model, id, tenantId) {
+  if (!id) {
+    return null
+  }
+
+  return prisma[model].findFirst({
+    where: { id, tenantId },
+  })
 }
 
 async function getStats(tenantId) {
@@ -146,6 +171,14 @@ async function createResource(resource, payload, context) {
         tenantId: context.tenantId,
         companyId: payload.companyId || null,
       },
+      include: {
+        phones: true,
+        emails: true,
+        addresses: true,
+        company: true,
+        vehicles: true,
+        workOrders: true,
+      },
     })
 
     await emitWebhookEvent({
@@ -174,6 +207,10 @@ async function createResource(resource, payload, context) {
         tenantId: context.tenantId,
         clientId: payload.clientId,
         branchId: payload.branchId || null,
+      },
+      include: {
+        client: true,
+        branch: true,
       },
     })
 
@@ -212,6 +249,248 @@ async function createResource(resource, payload, context) {
     })
 
     return created
+  }
+
+  if (resource === 'receptions') {
+    const client = await findOwnedRecord('client', payload.clientId, context.tenantId)
+    const vehicle = await findOwnedRecord('vehicle', payload.vehicleId, context.tenantId)
+
+    if (!client || !vehicle) {
+      throw new Error('Necesito un cliente y un vehículo válidos para crear la recepción.')
+    }
+
+    const created = await prisma.reception.create({
+      data: {
+        number: await getNextTenantNumber('reception', context.tenantId),
+        tenantId: context.tenantId,
+        clientId: client.id,
+        vehicleId: vehicle.id,
+        receivedById: context.actingUserId || null,
+        date: payload.date ? new Date(payload.date) : new Date(),
+        mileage: payload.mileage ? Number(payload.mileage) : null,
+        fuelLevel: payload.fuelLevel || null,
+        visibleDamages: payload.visibleDamages || null,
+        notes: payload.notes || null,
+      },
+      include: {
+        client: true,
+        vehicle: true,
+        receivedBy: true,
+      },
+    })
+
+    await emitWebhookEvent({
+      tenantId: context.tenantId,
+      event: WEBHOOK_EVENTS.receptionCreated,
+      payload: created,
+    })
+
+    return created
+  }
+
+  if (resource === 'quotations') {
+    const client = await findOwnedRecord('client', payload.clientId, context.tenantId)
+    const vehicle = await findOwnedRecord('vehicle', payload.vehicleId, context.tenantId)
+
+    if (!client || !vehicle) {
+      throw new Error('Necesito un cliente y un vehículo válidos para crear el presupuesto.')
+    }
+
+    return prisma.quotation.create({
+      data: {
+        number: await getNextTenantNumber('quotation', context.tenantId),
+        tenantId: context.tenantId,
+        clientId: client.id,
+        vehicleId: vehicle.id,
+        status: payload.status || 'draft',
+        subtotal: Number(payload.subtotal || 0),
+        discount: Number(payload.discount || 0),
+        tax: Number(payload.tax || 0),
+        total: Number(payload.total || 0),
+        validUntil: payload.validUntil ? new Date(payload.validUntil) : null,
+        notes: payload.notes || null,
+      },
+      include: {
+        client: true,
+        vehicle: true,
+        items: true,
+      },
+    })
+  }
+
+  if (resource === 'work-orders') {
+    const client = await findOwnedRecord('client', payload.clientId, context.tenantId)
+    const vehicle = await findOwnedRecord('vehicle', payload.vehicleId, context.tenantId)
+
+    if (!client || !vehicle) {
+      throw new Error('Necesito un cliente y un vehículo válidos para crear la orden de trabajo.')
+    }
+
+    return prisma.workOrder.create({
+      data: {
+        number: await getNextTenantNumber('workOrder', context.tenantId),
+        tenantId: context.tenantId,
+        clientId: client.id,
+        vehicleId: vehicle.id,
+        priority: payload.priority || 'normal',
+        status: payload.status || 'pending',
+        notes: payload.notes || null,
+      },
+      include: {
+        client: true,
+        vehicle: true,
+        tasks: true,
+        materials: true,
+      },
+    })
+  }
+
+  if (resource === 'inventory') {
+    const name = String(payload.name || '').trim()
+    const type = String(payload.type || '').trim()
+
+    if (!name || !type) {
+      throw new Error('Nombre y tipo son obligatorios para crear el item de inventario.')
+    }
+
+    return prisma.inventoryItem.create({
+      data: {
+        tenantId: context.tenantId,
+        name,
+        type,
+        description: payload.description || null,
+        sku: payload.sku || null,
+        stock: Number(payload.stock || 0),
+        minStock: Number(payload.minStock || 0),
+        purchasePrice: Number(payload.purchasePrice || 0),
+        salePrice: Number(payload.salePrice || 0),
+        location: payload.location || null,
+        notes: payload.notes || null,
+      },
+      include: {
+        category: true,
+        supplier: true,
+        branch: true,
+      },
+    })
+  }
+
+  if (resource === 'pos') {
+    const client = payload.clientId
+      ? await findOwnedRecord('client', payload.clientId, context.tenantId)
+      : null
+
+    if (payload.clientId && !client) {
+      throw new Error('El cliente seleccionado no pertenece al tenant actual.')
+    }
+
+    const created = await prisma.posTransaction.create({
+      data: {
+        number: await getNextTenantNumber('posTransaction', context.tenantId),
+        tenantId: context.tenantId,
+        clientId: client?.id || null,
+        cashierId: context.actingUserId || null,
+        type: payload.type || 'sale',
+        paymentMethod: payload.paymentMethod || 'cash',
+        subtotal: Number(payload.subtotal || payload.total || 0),
+        discount: Number(payload.discount || 0),
+        tax: Number(payload.tax || 0),
+        total: Number(payload.total || 0),
+        notes: payload.notes || null,
+      },
+      include: {
+        client: true,
+        cashier: true,
+        items: true,
+      },
+    })
+
+    await emitWebhookEvent({
+      tenantId: context.tenantId,
+      event: WEBHOOK_EVENTS.posCreated,
+      payload: created,
+    })
+
+    return created
+  }
+
+  if (resource === 'invoices') {
+    const client = await findOwnedRecord('client', payload.clientId, context.tenantId)
+    const workOrder = payload.workOrderId
+      ? await findOwnedRecord('workOrder', payload.workOrderId, context.tenantId)
+      : null
+
+    if (!client) {
+      throw new Error('Necesito un cliente válido para crear la factura.')
+    }
+
+    const created = await prisma.invoice.create({
+      data: {
+        number: await getNextTenantNumber('invoice', context.tenantId),
+        tenantId: context.tenantId,
+        clientId: client.id,
+        workOrderId: workOrder?.id || null,
+        type: payload.type || 'invoice',
+        status: payload.status || 'pending',
+        subtotal: Number(payload.subtotal || payload.total || 0),
+        discount: Number(payload.discount || 0),
+        tax: Number(payload.tax || 0),
+        total: Number(payload.total || 0),
+        notes: payload.notes || null,
+      },
+      include: {
+        client: true,
+        workOrder: true,
+        items: true,
+      },
+    })
+
+    await emitWebhookEvent({
+      tenantId: context.tenantId,
+      event: WEBHOOK_EVENTS.invoiceGenerated,
+      payload: created,
+    })
+
+    return created
+  }
+
+  if (resource === 'warranties') {
+    const client = await findOwnedRecord('client', payload.clientId, context.tenantId)
+    const vehicle = await findOwnedRecord('vehicle', payload.vehicleId, context.tenantId)
+    const workOrder = payload.workOrderId
+      ? await findOwnedRecord('workOrder', payload.workOrderId, context.tenantId)
+      : null
+    const invoice = payload.invoiceId
+      ? await findOwnedRecord('invoice', payload.invoiceId, context.tenantId)
+      : null
+
+    if (!client || !vehicle) {
+      throw new Error('Necesito un cliente y un vehículo válidos para crear la garantía.')
+    }
+
+    const defaultEndDate = new Date()
+    defaultEndDate.setMonth(defaultEndDate.getMonth() + 1)
+
+    return prisma.warranty.create({
+      data: {
+        tenantId: context.tenantId,
+        clientId: client.id,
+        vehicleId: vehicle.id,
+        workOrderId: workOrder?.id || null,
+        invoiceId: invoice?.id || null,
+        startDate: payload.startDate ? new Date(payload.startDate) : new Date(),
+        endDate: payload.endDate ? new Date(payload.endDate) : defaultEndDate,
+        status: payload.status || 'active',
+        description: payload.description || null,
+        claimNotes: payload.claimNotes || null,
+      },
+      include: {
+        client: true,
+        vehicle: true,
+        workOrder: true,
+        invoice: true,
+      },
+    })
   }
 
   throw new Error('El recurso solicitado no admite creación en esta versión de la API.')

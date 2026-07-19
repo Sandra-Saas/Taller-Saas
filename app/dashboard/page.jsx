@@ -1,43 +1,79 @@
 'use client'
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useMemo, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { useAuth } from '@/contexts/AuthContext'
 
-// Mock chart data (replace with real data from API later)
-const chartData = [
-  { name: 'Lun', value: 4000 },
-  { name: 'Mar', value: 3000 },
-  { name: 'Mié', value: 2000 },
-  { name: 'Jue', value: 2780 },
-  { name: 'Vie', value: 1890 },
-  { name: 'Sáb', value: 2390 },
-  { name: 'Dom', value: 3490 },
-];
+const currencyFormatter = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'ARS',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+})
+
+function formatCurrency(value) {
+  return currencyFormatter.format(Number(value || 0))
+}
+
+const pipelineCards = [
+  {
+    key: 'waiting_reception',
+    title: 'En espera de recepción',
+    description: 'Vehículos cargados pero todavía no ingresados formalmente.',
+  },
+  {
+    key: 'received_pending_definition',
+    title: 'Recibidos',
+    description: 'Ingresos realizados que aún esperan definición operativa.',
+  },
+  {
+    key: 'diagnosis',
+    title: 'En diagnóstico',
+    description: 'Unidades en evaluación técnica o preparación de presupuesto.',
+  },
+  {
+    key: 'waiting_approval',
+    title: 'Esperando aprobación',
+    description: 'Casos con presupuesto pendiente de validación del cliente.',
+  },
+  {
+    key: 'waiting_parts',
+    title: 'Esperando repuestos',
+    description: 'Trabajos detenidos hasta recibir materiales o piezas.',
+  },
+  {
+    key: 'ready_delivery',
+    title: 'Listos para entrega',
+    description: 'Vehículos terminados, pendientes de retiro por el cliente.',
+  },
+]
 
 export default function DashboardPage() {
-  const { tenant, user } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1);
+  const { tenant, user } = useAuth()
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/dashboard');
-        const data = await res.json();
-        setStats(data);
+        const res = await fetch('/api/dashboard', { cache: 'no-store' })
+        const data = await res.json()
+        setStats(data)
       } catch (err) {
-        console.error('Failed to fetch stats:', err);
+        console.error('Failed to fetch stats:', err)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    fetchStats();
-  }, []);
+    }
+    fetchStats()
+  }, [])
 
-  const general = stats?.general || {};
-  const economic = stats?.economic || {};
+  const general = stats?.general || {}
+  const operations = stats?.operations || {}
+  const economic = stats?.economic || {}
+  const chartData = useMemo(() => economic.weeklySeries || [], [economic.weeklySeries])
+  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1)
+  const vehiclePipeline = operations.vehiclePipeline || {}
 
   return (
     <div className="space-y-6">
@@ -130,7 +166,15 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Facturación Hoy</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${loading ? '...' : (economic.dailyBilling || 0).toFixed(2)}</div>
+              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.dailyBilling)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Facturación Semanal</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.weeklyBilling)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -138,25 +182,36 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Facturación Mensual</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${loading ? '...' : (economic.monthlyBilling || 0).toFixed(2)}</div>
+              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.monthlyBilling)}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Ganancia Neta</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Cobros Pendientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${loading ? '...' : (economic.netProfit || 0).toFixed(2)}</div>
+              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.pendingCollections)}</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Caja Diaria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${loading ? '...' : (economic.dailyCash || 0).toFixed(2)}</div>
-            </CardContent>
-          </Card>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-gray-200">Pipeline Operativo</h2>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {pipelineCards.map((item) => (
+            <Card key={item.key}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  {item.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{loading ? '...' : vehiclePipeline[item.key] || 0}</div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{item.description}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
@@ -167,25 +222,33 @@ export default function DashboardPage() {
             <CardTitle className="text-lg font-medium">Facturación Semanal</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {chartData.map((item) => (
-                <div key={item.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
-                    <span>{item.name}</span>
-                    <span>${item.value.toLocaleString('es-AR')}</span>
+            {loading ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando facturación semanal...</p>
+            ) : chartData.length > 0 ? (
+              <div className="space-y-4">
+                {chartData.map((item) => (
+                  <div key={item.key} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+                      <span className="capitalize">{item.label}</span>
+                      <span>{formatCurrency(item.value)}</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        className="h-full rounded-full bg-indigo-500"
+                        style={{ width: `${(item.value / maxChartValue) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                    <div
-                      className="h-full rounded-full bg-indigo-500"
-                      style={{ width: `${(item.value / maxChartValue) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                Todavía no hay facturas pagadas esta semana para mostrar en el gráfico.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
-  );
+  )
 }

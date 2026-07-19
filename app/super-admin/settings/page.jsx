@@ -89,7 +89,7 @@ export default function SettingsPage() {
             <CardTitle>Planes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-500">Gestión de planes y precios (próximamente)</p>
+            <p className="text-sm text-gray-500">Espacio listo para administrar planes, limites y precios comerciales.</p>
           </CardContent>
         </Card>
 
@@ -98,7 +98,7 @@ export default function SettingsPage() {
             <CardTitle>Notificaciones</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-500">Configuración de email y WhatsApp (próximamente)</p>
+            <p className="text-sm text-gray-500">Base preparada para centralizar email transaccional y mensajeria operativa.</p>
           </CardContent>
         </Card>
       </div>

@@ -35,6 +35,18 @@ const menuItems = [
   { icon: Settings, label: 'Configuración', href: '/super-admin/settings' },
 ]
 
+function isActivePath(pathname, href) {
+  if (pathname === href) {
+    return true
+  }
+
+  if (href === '/super-admin') {
+    return pathname === href
+  }
+
+  return pathname?.startsWith(`${href}/`)
+}
+
 export default function SuperAdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [accessState, setAccessState] = useState('checking')
@@ -153,64 +165,66 @@ export default function SuperAdminLayout({ children }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex h-16 items-center justify-between px-6 border-b border-indigo-700">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center">
-              <Shield className="h-5 w-5 text-indigo-600" />
+        <div className="flex h-full flex-col">
+          <div className="flex h-16 items-center justify-between border-b border-indigo-700 px-6">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
+                <Shield className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <span className="block text-xl font-bold text-white">Super Admin</span>
+                <span className="block text-xs text-indigo-200">
+                  {superAdmin?.email || 'Acceso global'}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="block text-xl font-bold text-white">Super Admin</span>
-              <span className="block text-xs text-indigo-200">
-                {superAdmin?.email || 'Acceso global'}
-              </span>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden text-white hover:bg-indigo-700"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <nav className="p-4 space-y-1">
-          {menuItems.map((item, idx) => (
-            <Link
-              key={idx}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-                pathname === item.href
-                  ? 'bg-indigo-700 text-white shadow-md'
-                  : 'text-indigo-100 hover:bg-indigo-700/50'
-              }`}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-indigo-700 lg:hidden"
               onClick={() => setSidebarOpen(false)}
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-indigo-700">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-indigo-100 hover:bg-indigo-700"
-              onClick={toggleTheme}
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-indigo-100 hover:bg-indigo-700"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
+          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+            {menuItems.map((item, idx) => (
+              <Link
+                key={idx}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+                  isActivePath(pathname, item.href)
+                    ? 'bg-indigo-700 text-white shadow-md'
+                    : 'text-indigo-100 hover:bg-indigo-700/50'
+                }`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+
+          <div className="border-t border-indigo-700 p-4">
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-indigo-100 hover:bg-indigo-700"
+                onClick={toggleTheme}
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-indigo-100 hover:bg-indigo-700"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </aside>

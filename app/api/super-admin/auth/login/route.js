@@ -14,7 +14,7 @@ export async function POST(req) {
     if (!email || !password) {
       return jsonResponse(
         { error: 'Email y contraseña son requeridos' },
-        { status: 400 }
+        400
       )
     }
 
@@ -26,14 +26,14 @@ export async function POST(req) {
     if (!superAdmin) {
       return jsonResponse(
         { error: 'Credenciales inválidas' },
-        { status: 401 }
+        401
       )
     }
 
     if (superAdmin.status !== 'active') {
       return jsonResponse(
         { error: 'Esta cuenta de super admin está inactiva' },
-        { status: 403 }
+        403
       )
     }
 
@@ -42,7 +42,7 @@ export async function POST(req) {
     if (!passwordValid) {
       return jsonResponse(
         { error: 'Credenciales inválidas' },
-        { status: 401 }
+        401
       )
     }
 
@@ -92,7 +92,7 @@ export async function POST(req) {
     console.error('Error en login de super admin:', error)
     return jsonResponse(
       { error: 'Error interno del servidor' },
-      { status: 500 }
+      500
     )
   }
 }
