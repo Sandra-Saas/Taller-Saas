@@ -1,14 +1,42 @@
+'use client'
+
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const DEFAULT_LOGO_SRC = '/logo%20cirfinal.png'
 
 export function BrandLogo({ className, compact = false, mono = false, src = DEFAULT_LOGO_SRC }) {
+  const router = useRouter()
   const titleClass = mono ? 'text-white' : 'text-slate-50'
   const subtitleClass = mono ? 'text-slate-200' : 'text-slate-300'
+  const isHiddenAccessGesture = (event) => event.ctrlKey || event.metaKey
+
+  const blockSecretGestureNavigation = (event) => {
+    if (!isHiddenAccessGesture(event)) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const handleSecretAccess = (event) => {
+    if (!isHiddenAccessGesture(event)) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    window.location.assign('/super-admin/login')
+  }
 
   return (
-    <div className={cn('inline-flex shrink-0 items-center', compact ? 'gap-4' : 'gap-5', mono && 'opacity-95', className)}>
+    <div
+      onClickCapture={blockSecretGestureNavigation}
+      onDoubleClick={handleSecretAccess}
+      className={cn('inline-flex shrink-0 items-center', compact ? 'gap-4' : 'gap-5', mono && 'opacity-95', className)}
+    >
       <Image
         src={src}
         alt="J&S Gestion Mecanica"

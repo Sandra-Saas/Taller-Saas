@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { AUTH_COOKIE_NAMES } from '@/lib/auth'
+import { AUTH_COOKIE_NAMES, SUPER_ADMIN_COOKIE_NAMES } from '@/lib/auth'
 
 export function middleware(request) {
   // Permitir acceso sin autenticación a /super-admin/login
@@ -7,8 +7,10 @@ export function middleware(request) {
     return NextResponse.next()
   }
 
-  const accessToken = request.cookies.get(AUTH_COOKIE_NAMES.accessToken)?.value
-  const expiresAt = Number(request.cookies.get(AUTH_COOKIE_NAMES.expiresAt)?.value || 0)
+  const isSuperAdminRoute = request.nextUrl.pathname.startsWith('/super-admin')
+  const cookieNames = isSuperAdminRoute ? SUPER_ADMIN_COOKIE_NAMES : AUTH_COOKIE_NAMES
+  const accessToken = request.cookies.get(cookieNames.accessToken)?.value
+  const expiresAt = Number(request.cookies.get(cookieNames.expiresAt)?.value || 0)
   const isExpired = expiresAt > 0 && expiresAt <= Math.floor(Date.now() / 1000)
 
   if (!accessToken || isExpired) {

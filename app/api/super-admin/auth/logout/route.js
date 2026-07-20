@@ -1,18 +1,17 @@
 import { jsonResponse } from '@/lib/api'
-import { AUTH_COOKIE_NAMES } from '@/lib/auth'
-import { cookies } from 'next/headers'
+import { buildClearedSuperAdminSessionCookieHeaders } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req) {
   try {
-    const cookieStore = await cookies()
-    
-    // Eliminar cookies de autenticación
-    cookieStore.delete(AUTH_COOKIE_NAMES.accessToken)
-    cookieStore.delete(AUTH_COOKIE_NAMES.expiresAt)
+    const response = jsonResponse({ success: true })
 
-    return jsonResponse({ success: true })
+    for (const cookie of buildClearedSuperAdminSessionCookieHeaders({ url: req.url })) {
+      response.headers.append('Set-Cookie', cookie)
+    }
+
+    return response
   } catch (error) {
     console.error('Error en logout de super admin:', error)
     return jsonResponse(

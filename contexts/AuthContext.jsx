@@ -127,7 +127,18 @@ export function AuthProvider({ children }) {
   }, [currentSession])
 
   const signIn = async (email, password) => {
-    return await supabase.auth.signInWithPassword({ email, password })
+    const result = await supabase.auth.signInWithPassword({ email, password })
+    const session = result.data?.session || null
+
+    if (!result.error && session?.access_token) {
+      setUser(session.user || null)
+      setTenant(getTenantFromUser(session.user || null))
+      setCurrentSession(session)
+      await syncAuthCookies(session)
+      await syncServerSession(session)
+    }
+
+    return result
   }
 
   const signUp = async (email, password) => {

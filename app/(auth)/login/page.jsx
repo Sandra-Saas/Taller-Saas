@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
@@ -12,6 +13,7 @@ import { getSafeRedirectPath } from '@/lib/auth'
 function LoginContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -41,14 +43,30 @@ function LoginContent() {
     }
   }
 
+  const handleLogoDoubleClick = (e) => {
+    if (!e.ctrlKey) {
+      return
+    }
+
+    e.preventDefault()
+    window.location.assign('/super-admin/login')
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white font-bold text-xl">T</span>
-            </div>
+            <button
+              type="button"
+              onDoubleClick={handleLogoDoubleClick}
+              aria-label="Acceso oculto"
+              className="group rounded-xl outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              <div className="h-12 w-12 rounded-lg bg-blue-600 flex items-center justify-center">
+                <span className="text-white font-bold text-xl">T</span>
+              </div>
+            </button>
           </div>
           <CardTitle className="text-2xl">Iniciar Sesion</CardTitle>
           <CardDescription>Accede con tu email y tu contraseña</CardDescription>
@@ -73,9 +91,19 @@ function LoginContent() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               <Input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

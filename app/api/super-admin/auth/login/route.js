@@ -1,9 +1,8 @@
 import { jsonResponse } from '@/lib/api'
 import { verifyPassword } from '@/lib/passwords'
 import prisma from '@/lib/prisma'
-import { AUTH_COOKIE_NAMES } from '@/lib/auth'
+import { buildSuperAdminSessionCookieHeaders } from '@/lib/auth'
 import { createJWT } from '@/lib/jwt-utils'
-import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,24 +61,7 @@ export async function POST(req) {
       exp: expiresAt
     })
 
-    // Configurar cookies
-    const cookieStore = await cookies()
-
-    cookieStore.set(AUTH_COOKIE_NAMES.accessToken, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 86400 * 7
-    })
-
-    cookieStore.set(AUTH_COOKIE_NAMES.expiresAt, expiresAt.toString(), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 86400 * 7
-    })
-
-    return jsonResponse({
+    const response = jsonResponse({
       success: true,
       superAdmin: {
         id: superAdmin.id,
@@ -88,6 +70,15 @@ export async function POST(req) {
         email: superAdmin.email
       }
     })
+
+    for (const cookie of buildSuperAdminSessionCookieHeaders(
+      { accessToken: token, expiresAt },
+      { url: req.url }
+    )) {
+      response.headers.append('Set-Cookie', cookie)
+    }
+
+    return response
   } catch (error) {
     console.error('Error en login de super admin:', error)
     return jsonResponse(

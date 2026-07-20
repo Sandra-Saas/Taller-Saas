@@ -102,7 +102,7 @@ export default function SuperAdminLayout({ children }) {
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/super-admin/logout', {
+      await fetch('/api/super-admin/auth/logout', {
         method: 'POST',
       })
     } catch (error) {
