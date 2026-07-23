@@ -50,27 +50,70 @@ const pipelineCards = [
 
 export default function DashboardPage() {
   const { tenant, user } = useAuth()
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [overviewStats, setOverviewStats] = useState(null)
+  const [operationStats, setOperationStats] = useState(null)
+  const [overviewLoading, setOverviewLoading] = useState(true)
+  const [operationsLoading, setOperationsLoading] = useState(true)
 
   useEffect(() => {
-    const fetchStats = async () => {
+    let cancelled = false
+
+    const fetchOverview = async () => {
       try {
-        const res = await fetch('/api/dashboard', { cache: 'no-store' })
-        const data = await res.json()
-        setStats(data)
-      } catch (err) {
-        console.error('Failed to fetch stats:', err)
+        const response = await fetch('/api/dashboard/overview', { cache: 'no-store' })
+        const data = await response.json()
+
+        if (!cancelled) {
+          setOverviewStats(response.ok ? data : null)
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard overview:', error)
+
+        if (!cancelled) {
+          setOverviewStats(null)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setOverviewLoading(false)
+        }
       }
     }
-    fetchStats()
+
+    const fetchOperations = async () => {
+      try {
+        const response = await fetch('/api/dashboard/operations', { cache: 'no-store' })
+        const data = await response.json()
+
+        if (!cancelled) {
+          setOperationStats(response.ok ? data : null)
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard operations:', error)
+
+        if (!cancelled) {
+          setOperationStats(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setOperationsLoading(false)
+        }
+      }
+    }
+
+    fetchOverview()
+    fetchOperations()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const general = stats?.general || {}
-  const operations = stats?.operations || {}
-  const economic = stats?.economic || {}
+  const general = {
+    ...(overviewStats?.general || {}),
+    ...(operationStats?.general || {}),
+  }
+  const operations = operationStats?.operations || {}
+  const economic = overviewStats?.economic || {}
   const chartData = useMemo(() => economic.weeklySeries || [], [economic.weeklySeries])
   const maxChartValue = Math.max(...chartData.map((item) => item.value), 1)
   const vehiclePipeline = operations.vehiclePipeline || {}
@@ -95,7 +138,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Vehículos Hoy</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.vehiclesToday || 0}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : general.vehiclesToday || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -103,7 +146,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">En Reparación</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.vehiclesInRepair || 0}</div>
+              <div className="text-2xl font-bold">{operationsLoading ? '...' : general.vehiclesInRepair || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -111,7 +154,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Terminados</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.vehiclesFinished || 0}</div>
+              <div className="text-2xl font-bold">{operationsLoading ? '...' : general.vehiclesFinished || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -119,7 +162,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Entregados</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.vehiclesDelivered || 0}</div>
+              <div className="text-2xl font-bold">{operationsLoading ? '...' : general.vehiclesDelivered || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -127,7 +170,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Turnos Hoy</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.appointmentsToday || 0}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : general.appointmentsToday || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -135,7 +178,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Cotizaciones Pendientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.pendingQuotations || 0}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : general.pendingQuotations || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -143,7 +186,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Órdenes Activas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.activeWorkOrders || 0}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : general.activeWorkOrders || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -151,7 +194,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Órdenes Terminadas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : general.finishedWorkOrders || 0}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : general.finishedWorkOrders || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -166,7 +209,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Facturación Hoy</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.dailyBilling)}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : formatCurrency(economic.dailyBilling)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -174,7 +217,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Facturación Semanal</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.weeklyBilling)}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : formatCurrency(economic.weeklyBilling)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -182,7 +225,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Facturación Mensual</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.monthlyBilling)}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : formatCurrency(economic.monthlyBilling)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -190,7 +233,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Cobros Pendientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? '...' : formatCurrency(economic.pendingCollections)}</div>
+              <div className="text-2xl font-bold">{overviewLoading ? '...' : formatCurrency(economic.pendingCollections)}</div>
             </CardContent>
           </Card>
         </div>
@@ -207,7 +250,7 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{loading ? '...' : vehiclePipeline[item.key] || 0}</div>
+                <div className="text-2xl font-bold">{operationsLoading ? '...' : vehiclePipeline[item.key] || 0}</div>
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{item.description}</p>
               </CardContent>
             </Card>
@@ -222,7 +265,7 @@ export default function DashboardPage() {
             <CardTitle className="text-lg font-medium">Facturación Semanal</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {overviewLoading ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">Cargando facturación semanal...</p>
             ) : chartData.length > 0 ? (
               <div className="space-y-4">

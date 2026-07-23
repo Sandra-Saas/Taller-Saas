@@ -35,7 +35,7 @@ function LoginContent() {
     try {
       const { error } = await signIn(email, password)
       if (error) throw error
-      router.push(nextPath)
+      window.location.assign(nextPath)
     } catch (err) {
       setError(err.message)
     } finally {

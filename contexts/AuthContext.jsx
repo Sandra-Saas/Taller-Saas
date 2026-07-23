@@ -12,6 +12,13 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [currentSession, setCurrentSession] = useState(null)
 
+  const persistSessionInBackground = (session, options = {}) => {
+    Promise.allSettled([
+      syncAuthCookies(session, options),
+      syncServerSession(session),
+    ]).catch(() => {})
+  }
+
   const syncAuthCookies = async (session, options = {}) => {
     try {
       const allowClear = options.allowClear === true
@@ -81,9 +88,8 @@ export function AuthProvider({ children }) {
       const { data: { session } } = await supabase.auth.getSession()
 
       applySession(session)
-      await syncAuthCookies(session)
-      await syncServerSession(session)
       setLoading(false)
+      persistSessionInBackground(session)
     }
 
     getSession()
@@ -91,9 +97,8 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         applySession(session)
-        await syncAuthCookies(session, { allowClear: _event === 'SIGNED_OUT' })
-        await syncServerSession(session)
         setLoading(false)
+        persistSessionInBackground(session, { allowClear: _event === 'SIGNED_OUT' })
       }
     )
 
@@ -141,7 +146,7 @@ export function AuthProvider({ children }) {
       setTenant(getTenantFromUser(session.user || null))
       setCurrentSession(session)
       await syncAuthCookies(session)
-      await syncServerSession(session)
+      persistSessionInBackground(session)
     }
 
     return result

@@ -1,12 +1,11 @@
-import prisma from '../../../lib/prisma'
-import { jsonResponse, errorResponse } from '../../../lib/api'
-import { requireTenantContext } from '../../../lib/request-context'
+import prisma from '../../../../lib/prisma'
+import { jsonResponse, errorResponse } from '../../../../lib/api'
+import { requireTenantContext } from '../../../../lib/request-context'
 import {
   buildWeeklySeries,
   decimalToNumber,
   getStartOfBusinessWeek,
-  summarizeVehicleOperations,
-} from '../../../lib/dashboard-metrics'
+} from '../../../../lib/dashboard-metrics'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,7 +31,6 @@ export async function GET(req) {
 
     const [
       vehiclesToday,
-      vehiclesForStatus,
       appointmentsToday,
       appointmentsWeek,
       pendingQuotations,
@@ -45,36 +43,9 @@ export async function GET(req) {
       monthlyBillingAggregate,
       yearlyBillingAggregate,
       pendingCollectionsAggregate,
-      lowStockItems,
     ] = await Promise.all([
       prisma.vehicle.count({
         where: { tenantId, createdAt: { gte: startOfToday, lt: endOfToday } },
-      }),
-      prisma.vehicle.findMany({
-        where: { tenantId },
-        select: {
-          id: true,
-          createdAt: true,
-          receptions: {
-            select: { id: true },
-            take: 1,
-          },
-          workOrders: {
-            select: { id: true, status: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          quotations: {
-            select: { id: true, status: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          statusLogs: {
-            select: { status: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-        },
       }),
       prisma.calendarEvent.count({
         where: { tenantId, startDate: { gte: startOfToday, lt: endOfToday } },
@@ -117,31 +88,11 @@ export async function GET(req) {
         where: { tenantId, status: 'pending' },
         _sum: { total: true },
       }),
-      prisma.inventoryItem.findMany({
-        where: {
-          tenantId,
-          minStock: { gt: 0 },
-        },
-        select: { stock: true, minStock: true },
-      }),
     ])
-
-    const dailyBilling = decimalToNumber(dailyBillingAggregate._sum.total)
-    const weeklyBilling = weeklyInvoices.reduce((sum, inv) => sum + decimalToNumber(inv.total), 0)
-    const monthlyBilling = decimalToNumber(monthlyBillingAggregate._sum.total)
-    const yearlyBilling = decimalToNumber(yearlyBillingAggregate._sum.total)
-    const pendingCollections = decimalToNumber(pendingCollectionsAggregate._sum.total)
-    const lowStockCount = lowStockItems.filter((item) => item.stock <= item.minStock).length
-    const weeklySeries = buildWeeklySeries(weeklyInvoices, startOfWeek)
-    const { vehicleStatusSummary, vehiclePipeline } = summarizeVehicleOperations(vehiclesForStatus)
 
     return jsonResponse({
       general: {
         vehiclesToday,
-        vehiclesInRepair: vehicleStatusSummary.vehiclesInRepair,
-        vehiclesFinished: vehicleStatusSummary.vehiclesFinished,
-        vehiclesDelivered: vehicleStatusSummary.vehiclesDelivered,
-        vehiclesPending: vehicleStatusSummary.vehiclesPending,
         appointmentsToday,
         appointmentsWeek,
         pendingQuotations,
@@ -150,26 +101,17 @@ export async function GET(req) {
         activeWorkOrders,
         finishedWorkOrders,
       },
-      operations: {
-        vehiclePipeline,
-      },
       economic: {
-        dailyBilling,
-        weeklyBilling,
-        monthlyBilling,
-        yearlyBilling,
-        pendingCollections,
-        weeklySeries,
+        dailyBilling: decimalToNumber(dailyBillingAggregate._sum.total),
+        weeklyBilling: weeklyInvoices.reduce((sum, invoice) => sum + decimalToNumber(invoice.total), 0),
+        monthlyBilling: decimalToNumber(monthlyBillingAggregate._sum.total),
+        yearlyBilling: decimalToNumber(yearlyBillingAggregate._sum.total),
+        pendingCollections: decimalToNumber(pendingCollectionsAggregate._sum.total),
+        weeklySeries: buildWeeklySeries(weeklyInvoices, startOfWeek),
       },
-      commercial: {},
-      inventory: {
-        lowStockItems: lowStockCount,
-      },
-      mechanics: {},
-      branches: {},
     })
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error)
-    return errorResponse('No se pudieron obtener las métricas del dashboard.')
+    console.error('Error fetching dashboard overview:', error)
+    return errorResponse('No se pudieron obtener las métricas principales del dashboard.')
   }
 }
