@@ -15,15 +15,22 @@ export async function GET(req) {
     const includeLogs = searchParams.get('includeLogs') === 'true'
 
     const snapshot = await getObservabilitySnapshot()
-    const payload = { ...snapshot }
+    const payload = {
+      ...snapshot,
+      logs: [],
+    }
 
     if (includeLogs) {
-      payload.logs = await getCentralLogs({
-        limit: Number(searchParams.get('limit') || 20),
-        source: searchParams.get('source') || 'all',
-        search: searchParams.get('search') || '',
-        tenantId: searchParams.get('tenantId') || '',
-      })
+      try {
+        payload.logs = await getCentralLogs({
+          limit: Number(searchParams.get('limit') || 20),
+          source: searchParams.get('source') || 'all',
+          search: searchParams.get('search') || '',
+          tenantId: searchParams.get('tenantId') || '',
+        })
+      } catch (error) {
+        console.error('Error fetching observability logs:', error)
+      }
     }
 
     return jsonResponse(payload)
