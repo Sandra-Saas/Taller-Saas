@@ -80,9 +80,12 @@ function buildOptionsForValues(field, supportData, values) {
       return field.mapOption(item)
     }
 
+    const clientLabel = [item.firstName, item.lastName].filter(Boolean).join(' ').trim()
+    const vehicleLabel = [item.brand, item.model, item.plate].filter(Boolean).join(' · ').trim()
+
     return {
       value: item.id,
-      label: item.name || item.title || item.number || item.id,
+      label: item.name || item.title || clientLabel || vehicleLabel || item.number || item.id,
     }
   })
 }
@@ -255,6 +258,10 @@ export function ResourceCrudPanel({
   const [editFieldErrors, setEditFieldErrors] = useState({})
   const [deletingId, setDeletingId] = useState('')
   const writeEndpoint = useMemo(() => listEndpoint.split('?')[0], [listEndpoint])
+  const shouldDebugAffectedCreate =
+    writeEndpoint === '/api/public/v1/vehicles' ||
+    writeEndpoint === '/api/public/v1/turns' ||
+    writeEndpoint === '/api/public/v1/receptions'
 
   useEffect(() => {
     let cancelled = false
@@ -269,6 +276,40 @@ export function ResourceCrudPanel({
           supportEndpoints.map(async (resource) => {
             const response = await fetch(resource.url, { cache: 'no-store' })
             const payload = await response.json()
+            // #region debug-point E:support-load
+            if (
+              shouldDebugAffectedCreate &&
+              (resource.key === 'clients' || resource.key === 'vehicles')
+            ) {
+              const list = normalizeListPayload(payload)
+              const sample = list[0] || null
+              fetch('http://127.0.0.1:7777/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionId: 'resource-create-500',
+                  runId: 'pre',
+                  hypothesisId: 'E',
+                  location: 'components/dashboard/ResourceCrudPanel.jsx:loadSupportData',
+                  msg: '[DEBUG] support data loaded for affected create flow',
+                  data: {
+                    writeEndpoint,
+                    resourceKey: resource.key,
+                    responseOk: response.ok,
+                    total: list.length,
+                    sampleKeys: sample ? Object.keys(sample) : [],
+                    sampleId: sample?.id || null,
+                    sampleFirstName: sample?.firstName || null,
+                    sampleLastName: sample?.lastName || null,
+                    sampleName: sample?.name || null,
+                    sampleTitle: sample?.title || null,
+                    sampleNumber: sample?.number || null,
+                  },
+                  ts: Date.now(),
+                }),
+              }).catch(() => {})
+            }
+            // #endregion
             return [resource.key, normalizeListPayload(payload)]
           })
         )
@@ -387,12 +428,62 @@ export function ResourceCrudPanel({
 
     try {
       const payload = typeof serializeCreate === 'function' ? serializeCreate(createValues) : createValues
+      const debugTraceId = `resource-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      // #region debug-point C:create-submit
+      if (shouldDebugAffectedCreate) {
+        fetch('http://127.0.0.1:7777/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'resource-create-500',
+            runId: 'pre',
+            hypothesisId: 'C',
+            traceId: debugTraceId,
+            location: 'components/dashboard/ResourceCrudPanel.jsx:handleCreate:beforeFetch',
+            msg: '[DEBUG] affected resource create submit started',
+            data: {
+              writeEndpoint,
+              payload,
+              payloadKeys: Object.keys(payload || {}),
+            },
+            ts: Date.now(),
+          }),
+        }).catch(() => {})
+      }
+      // #endregion
       const response = await fetch(writeEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: shouldDebugAffectedCreate
+          ? { 'Content-Type': 'application/json', 'X-Debug-Trace-Id': debugTraceId }
+          : { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       const data = await response.json()
+      // #region debug-point C:create-response
+      if (shouldDebugAffectedCreate) {
+        fetch('http://127.0.0.1:7777/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'resource-create-500',
+            runId: 'pre',
+            hypothesisId: 'C',
+            traceId: debugTraceId,
+            location: 'components/dashboard/ResourceCrudPanel.jsx:handleCreate:afterFetch',
+            msg: '[DEBUG] affected resource create response received',
+            data: {
+              writeEndpoint,
+              ok: response.ok,
+              status: response.status,
+              error: data?.error || null,
+              message: data?.message || null,
+              returnedId: data?.id || null,
+            },
+            ts: Date.now(),
+          }),
+        }).catch(() => {})
+      }
+      // #endregion
 
       if (!response.ok) {
         throw new Error(data?.message || 'No se pudo crear el registro.')
@@ -402,6 +493,26 @@ export function ResourceCrudPanel({
       setCreateOpen(false)
       resetCreateForm()
     } catch (submitError) {
+      // #region debug-point C:create-catch
+      if (shouldDebugAffectedCreate) {
+        fetch('http://127.0.0.1:7777/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'resource-create-500',
+            runId: 'pre',
+            hypothesisId: 'C',
+            location: 'components/dashboard/ResourceCrudPanel.jsx:handleCreate:catch',
+            msg: '[DEBUG] affected resource create submit failed in panel',
+            data: {
+              writeEndpoint,
+              errorMessage: submitError?.message || null,
+            },
+            ts: Date.now(),
+          }),
+        }).catch(() => {})
+      }
+      // #endregion
       console.error('Error creating record:', submitError)
       setError(submitError.message || 'No se pudo crear el registro.')
     } finally {

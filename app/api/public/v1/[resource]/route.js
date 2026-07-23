@@ -110,6 +110,15 @@ async function findOwnedRecord(model, id, tenantId) {
   })
 }
 
+function parseNullableNumber(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null
+  }
+
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
 async function getStats(tenantId) {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -191,21 +200,27 @@ async function createResource(resource, payload, context) {
   }
 
   if (resource === 'vehicles') {
+    const client = await findOwnedRecord('client', payload.clientId, context.tenantId)
+
+    if (!client) {
+      throw new Error('Necesito un cliente válido para crear el vehículo.')
+    }
+
     const created = await prisma.vehicle.create({
       data: {
         brand: payload.brand,
         model: payload.model,
-        year: payload.year || null,
+        year: parseNullableNumber(payload.year),
         plate: payload.plate || null,
         vin: payload.vin || null,
         engine: payload.engine || null,
         chassis: payload.chassis || null,
         color: payload.color || null,
-        mileage: payload.mileage || null,
+        mileage: parseNullableNumber(payload.mileage),
         fuel: payload.fuel || null,
         notes: payload.notes || null,
         tenantId: context.tenantId,
-        clientId: payload.clientId,
+        clientId: client.id,
         branchId: payload.branchId || null,
       },
       include: {
@@ -559,6 +574,9 @@ export async function GET(req, { params }) {
 export async function POST(req, { params }) {
   try {
     const { resource } = params
+    const debugTraceId = req.headers.get('x-debug-trace-id') || null
+    const shouldDebugAffectedCreate =
+      resource === 'vehicles' || resource === 'turns' || resource === 'receptions'
     const config = PUBLIC_API_RESOURCES[resource]
     if (!config) {
       return errorResponse('Recurso no soportado por la API pública.', 404)
@@ -566,11 +584,75 @@ export async function POST(req, { params }) {
 
     const auth = await authorizeRequest(req, config.writeScope)
     if (auth.error) {
+      // #region debug-point D:public-auth-fail
+      if (shouldDebugAffectedCreate) {
+        fetch('http://127.0.0.1:7777/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'resource-create-500',
+            runId: 'pre',
+            hypothesisId: 'D',
+            traceId: debugTraceId,
+            location: 'app/api/public/v1/[resource]/route.js:POST:authError',
+            msg: '[DEBUG] affected create authorization failed',
+            data: { resource },
+            ts: Date.now(),
+          }),
+        }).catch(() => {})
+      }
+      // #endregion
       return auth.error
     }
 
     const payload = await req.json()
+    // #region debug-point D:public-create-start
+    if (shouldDebugAffectedCreate) {
+      fetch('http://127.0.0.1:7777/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'resource-create-500',
+          runId: 'pre',
+          hypothesisId: 'D',
+          traceId: debugTraceId,
+          location: 'app/api/public/v1/[resource]/route.js:POST:beforeCreate',
+          msg: '[DEBUG] affected create started in public api',
+          data: {
+            resource,
+            tenantId: auth.context?.tenantId || null,
+            authType: auth.context?.authType || null,
+            userId: auth.context?.userId || null,
+            actingUserId: auth.context?.actingUserId || null,
+            payload,
+          },
+          ts: Date.now(),
+        }),
+      }).catch(() => {})
+    }
+    // #endregion
     const created = await createResource(resource, payload, auth.context)
+    // #region debug-point D:public-create-success
+    if (shouldDebugAffectedCreate) {
+      fetch('http://127.0.0.1:7777/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'resource-create-500',
+          runId: 'pre',
+          hypothesisId: 'D',
+          traceId: debugTraceId,
+          location: 'app/api/public/v1/[resource]/route.js:POST:afterCreate',
+          msg: '[DEBUG] affected create succeeded in public api',
+          data: {
+            resource,
+            createdId: created?.id || null,
+          },
+          ts: Date.now(),
+        }),
+      }).catch(() => {})
+    }
+    // #endregion
 
     await createAuditLog({
       tenantId: auth.context.tenantId,
@@ -585,6 +667,31 @@ export async function POST(req, { params }) {
 
     return jsonResponse(created, 201, auth.rateLimitHeaders)
   } catch (error) {
+    // #region debug-point D:public-create-catch
+    if (
+      params?.resource === 'vehicles' ||
+      params?.resource === 'turns' ||
+      params?.resource === 'receptions'
+    ) {
+      fetch('http://127.0.0.1:7777/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'resource-create-500',
+          runId: 'pre',
+          hypothesisId: 'D',
+          location: 'app/api/public/v1/[resource]/route.js:POST:catch',
+          msg: '[DEBUG] affected create failed in public api',
+          data: {
+            resource: params?.resource || null,
+            errorMessage: error?.message || null,
+            errorName: error?.name || null,
+          },
+          ts: Date.now(),
+        }),
+      }).catch(() => {})
+    }
+    // #endregion
     console.error('Error creando recurso público:', error)
     return errorResponse(error.message || 'No se pudo crear el recurso solicitado.')
   }

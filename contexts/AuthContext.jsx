@@ -75,6 +75,28 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const bootstrapAuthenticatedAccount = async (session, options = {}) => {
+    const email = String(session?.user?.email || '').trim().toLowerCase()
+
+    if (!email) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/auth/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password: options.password || null,
+        }),
+      })
+      await response.json().catch(() => null)
+    } catch (error) {
+      console.error('No se pudo bootstrapear la cuenta autenticada', error)
+    }
+  }
+
   useEffect(() => {
     const applySession = (session) => {
       const nextUser = session?.user || null
@@ -88,6 +110,7 @@ export function AuthProvider({ children }) {
       const { data: { session } } = await supabase.auth.getSession()
 
       applySession(session)
+      await bootstrapAuthenticatedAccount(session)
       setLoading(false)
       persistSessionInBackground(session)
     }
@@ -97,6 +120,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         applySession(session)
+        await bootstrapAuthenticatedAccount(session)
         setLoading(false)
         persistSessionInBackground(session, { allowClear: _event === 'SIGNED_OUT' })
       }
@@ -146,6 +170,7 @@ export function AuthProvider({ children }) {
       setTenant(getTenantFromUser(session.user || null))
       setCurrentSession(session)
       await syncAuthCookies(session)
+      await bootstrapAuthenticatedAccount(session, { password })
       persistSessionInBackground(session)
     }
 
@@ -153,7 +178,19 @@ export function AuthProvider({ children }) {
   }
 
   const signUp = async (email, password) => {
-    return await supabase.auth.signUp({ email, password })
+    const result = await supabase.auth.signUp({ email, password })
+    const session = result.data?.session || null
+
+    if (!result.error && session?.access_token) {
+      setUser(session.user || null)
+      setTenant(getTenantFromUser(session.user || null))
+      setCurrentSession(session)
+      await syncAuthCookies(session)
+      await bootstrapAuthenticatedAccount(session, { password })
+      persistSessionInBackground(session)
+    }
+
+    return result
   }
 
   const signOut = async (options = {}) => {
