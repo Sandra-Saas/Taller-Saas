@@ -32,7 +32,7 @@ async function createSuperAdmin() {
     console.log(`   Email: ${superAdmin.email}`)
     console.log(`   Nombre: ${superAdmin.firstName} ${superAdmin.lastName}`)
     console.log(`   Estado: ${superAdmin.status}`)
-    console.log(`\n🔐 Puedes acceder en http://localhost:3000/login con:`)
+    console.log(`\n🔐 Puedes acceder en http://localhost:3000/super-admin/login con:`)
     console.log(`   Email: jas985889@gmail.com`)
     console.log(`   Contraseña: Dolar2026`)
     

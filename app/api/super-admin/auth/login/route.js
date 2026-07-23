@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req) {
   try {
-    const { email, password } = await req.json()
+    const payload = await req.json()
+    const email = String(payload?.email || '').trim().toLowerCase()
+    const password = String(payload?.password || '')
 
     if (!email || !password) {
       return jsonResponse(
@@ -67,8 +69,9 @@ export async function POST(req) {
         id: superAdmin.id,
         firstName: superAdmin.firstName,
         lastName: superAdmin.lastName,
-        email: superAdmin.email
-      }
+        email: superAdmin.email,
+      },
+      next: '/super-admin',
     })
 
     for (const cookie of buildSuperAdminSessionCookieHeaders(

@@ -1,20 +1,50 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
+import { getSafeRedirectPath } from '@/lib/auth'
 
-export default function SuperAdminLoginPage() {
+function SuperAdminLoginContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const nextPath = useMemo(() => {
+    const requestedPath = getSafeRedirectPath(searchParams.get('next'))
+    return requestedPath === '/dashboard' ? '/super-admin' : requestedPath
+  }, [searchParams])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const checkActiveSession = async () => {
+      try {
+        const response = await fetch('/api/super-admin/me', {
+          cache: 'no-store',
+        })
+
+        if (!cancelled && response.ok) {
+          router.replace(nextPath)
+          router.refresh()
+        }
+      } catch {}
+    }
+
+    checkActiveSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [nextPath, router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -25,17 +55,17 @@ export default function SuperAdminLoginPage() {
       const response = await fetch('/api/super-admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ email, password })
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => null)
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error en el login')
+        throw new Error(data?.error || 'Error en el login')
       }
 
-      // Redirigir al dashboard de super admin
-      router.push('/super-admin')
+      window.location.assign(nextPath)
     } catch (err) {
       setError(err.message || 'Error desconocido')
     } finally {
@@ -108,5 +138,13 @@ export default function SuperAdminLoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function SuperAdminLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-gray-900" />}>
+      <SuperAdminLoginContent />
+    </Suspense>
   )
 }
