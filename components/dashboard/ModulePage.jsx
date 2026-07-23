@@ -73,12 +73,7 @@ function normalizeRecords(payload) {
 export function ModulePage({
   title,
   description,
-  badgeLabel,
   metrics = [],
-  workflowTitle = 'Circuito operativo',
-  workflow = [],
-  highlightsTitle = 'Puntos clave',
-  highlights = [],
   recordsTitle = 'Actividad reciente',
   recordsDescription = 'Resumen de los elementos mas recientes del modulo.',
   recentItems = [],
@@ -183,8 +178,6 @@ export function ModulePage({
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
         </div>
-
-        {badgeLabel ? <Badge variant="secondary">{badgeLabel}</Badge> : null}
       </div>
 
       {resolvedMetrics.length > 0 ? (
@@ -204,53 +197,6 @@ export function ModulePage({
           ))}
         </div>
       ) : null}
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{workflowTitle}</CardTitle>
-            <CardDescription>Secuencia recomendada para operar este modulo.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {workflow.map((step, index) => (
-              <div
-                key={`${step.title}-${index}`}
-                className="rounded-lg border border-gray-200 p-4 dark:border-gray-800"
-              >
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                    Paso {index + 1}
-                  </span>
-                  {step.badge ? <Badge variant="secondary">{step.badge}</Badge> : null}
-                </div>
-                <p className="font-medium text-gray-900 dark:text-white">{step.title}</p>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{step.description}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{highlightsTitle}</CardTitle>
-            <CardDescription>Referencias utiles para trabajar con este espacio.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {highlights.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-lg border border-dashed border-gray-200 p-4 dark:border-gray-800"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-gray-900 dark:text-white">{item.title}</p>
-                  {item.badge ? <Badge variant={getStatusVariant(item.badge)}>{item.badge}</Badge> : null}
-                </div>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.description}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
 
       <Card>
         <CardHeader>

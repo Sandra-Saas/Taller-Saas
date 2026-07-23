@@ -18,7 +18,6 @@ export default function InventoryPage() {
     <ModulePage
       title="Inventario"
       description="Supervisa stock, reposicion y consumo operativo de repuestos e insumos."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Stock critico',

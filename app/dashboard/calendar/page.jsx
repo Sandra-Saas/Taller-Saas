@@ -38,7 +38,6 @@ export default function CalendarPage() {
     <ModulePage
       title="Agenda"
       description="Organiza turnos, bloques horarios y recordatorios desde un espacio centralizado."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Turnos de hoy',

@@ -52,7 +52,6 @@ export default function QuotationsPage() {
     <ModulePage
       title="Presupuestos"
       description="Prepara propuestas, controla aprobaciones y prioriza las cotizaciones pendientes."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Borradores pendientes',

@@ -54,7 +54,6 @@ export default function WarrantiesPage() {
     <ModulePage
       title="Garantias"
       description="Da seguimiento a coberturas postventa y mantiene trazabilidad sobre reclamos y vencimientos."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Ordenes finalizadas',

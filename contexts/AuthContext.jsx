@@ -12,8 +12,9 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [currentSession, setCurrentSession] = useState(null)
 
-  const syncAuthCookies = async (session) => {
+  const syncAuthCookies = async (session, options = {}) => {
     try {
+      const allowClear = options.allowClear === true
       const method = session?.access_token ? 'POST' : 'DELETE'
       const payload = session?.access_token
         ? {
@@ -21,6 +22,10 @@ export function AuthProvider({ children }) {
             expiresAt: session.expires_at || null,
           }
         : undefined
+
+      if (!session?.access_token && !allowClear) {
+        return
+      }
 
       await fetch('/api/auth/cookies', {
         method,
@@ -74,6 +79,7 @@ export function AuthProvider({ children }) {
 
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
+
       applySession(session)
       await syncAuthCookies(session)
       await syncServerSession(session)
@@ -85,7 +91,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         applySession(session)
-        await syncAuthCookies(session)
+        await syncAuthCookies(session, { allowClear: _event === 'SIGNED_OUT' })
         await syncServerSession(session)
         setLoading(false)
       }
@@ -116,7 +122,7 @@ export function AuthProvider({ children }) {
           setUser(null)
           setTenant(null)
           setCurrentSession(null)
-          await syncAuthCookies(null)
+          await syncAuthCookies(null, { allowClear: true })
         }
       } catch (error) {
         console.error('No se pudo validar el estado remoto de la sesión', error)
@@ -160,7 +166,7 @@ export function AuthProvider({ children }) {
     setUser(null)
     setTenant(null)
     setCurrentSession(null)
-    await syncAuthCookies(null)
+    await syncAuthCookies(null, { allowClear: true })
   }
 
   return (

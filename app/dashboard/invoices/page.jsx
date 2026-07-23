@@ -39,7 +39,6 @@ export default function InvoicesPage() {
     <ModulePage
       title="Facturacion"
       description="Controla comprobantes, cobros pendientes y rendimiento economico del taller."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Facturacion de hoy',

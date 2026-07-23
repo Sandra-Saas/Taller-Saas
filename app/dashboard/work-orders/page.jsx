@@ -37,7 +37,6 @@ export default function WorkOrdersPage() {
     <ModulePage
       title="Ordenes de Trabajo"
       description="Coordina reparaciones, asignaciones y control de avance desde una sola vista."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Ordenes activas',

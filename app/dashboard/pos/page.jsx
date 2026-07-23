@@ -32,7 +32,6 @@ export default function POSPage() {
     <ModulePage
       title="POS"
       description="Centraliza ventas rapidas de mostrador y deja el modulo listo para caja e inventario."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Caja del dia',

@@ -29,7 +29,6 @@ export default function ClientsPage() {
     <ModulePage
       title="Clientes"
       description="Gestiona la base de clientes, su estado comercial y el acceso rapido a sus siguientes pasos."
-      badgeLabel="Modulo habilitado"
       workflowTitle="Circuito comercial"
       workflow={[
         {

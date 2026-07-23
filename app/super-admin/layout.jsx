@@ -84,7 +84,6 @@ export default function SuperAdminLayout({ children }) {
         setSuperAdmin(data.superAdmin || null)
         setAccessState('granted')
       } catch (error) {
-        console.error('No se pudo validar el acceso de super admin', error)
         if (!active) {
           return
         }

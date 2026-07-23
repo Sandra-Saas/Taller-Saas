@@ -54,7 +54,6 @@ export default function ReceptionsPage() {
     <ModulePage
       title="Recepcion"
       description="Estandariza el ingreso de vehiculos y deja respaldo digital desde el primer contacto."
-      badgeLabel="Modulo habilitado"
       metrics={[
         {
           label: 'Vehiculos pendientes',

@@ -21,7 +21,6 @@ export default function VehiclesPage() {
     <ModulePage
       title="Vehiculos"
       description="Gestiona unidades, vinculos con clientes y accesos rapidos al flujo operativo."
-      badgeLabel="Modulo habilitado"
       workflowTitle="Circuito del vehiculo"
       workflow={[
         {
